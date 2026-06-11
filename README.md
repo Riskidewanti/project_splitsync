@@ -1,17 +1,96 @@
-# splitsync
+# SplitSync
 
-A new Flutter project.
+## Anggota 1 - Authentication & Profile (Salsa)
 
-## Getting Started
+### Authentication
+- Login
+- Register
+- Logout
+- Session Management
+- Forgot Password
+- Integrasi Supabase Auth
 
-This project is a starting point for a Flutter application.
+### Profile
+- Profile Page
+- Edit Profile
+- User Settings
+- Menampilkan Data Pengguna
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Anggota 2 - Database, Backend & OCR (Kiki)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Database Architecture
+- Database Design
+- ERD & Relasi Tabel
+- Supabase Setup
+- Database Migration
+- Row Level Security (RLS)
+- Database Indexing
+- Flutter ↔ Supabase Integration
+
+### OCR Receipt Scanner
+- Upload Receipt Image
+- OCR Processing
+- Extract Expense Items
+- Edit OCR Result
+- Save OCR Result
+
+### Database Tables
+- profiles
+- friend_requests
+- groups
+- group_members
+- expenses
+- expense_items
+- expense_item_participants
+- expense_splits
+- expense_debts
+- settlements
+- settlement_expense_debts
+- ocr_jobs
+- notifications
+
+---
+
+## Anggota 3 - Group, Expense & Settlement (Wedya)
+
+### Group Management
+- Create Group
+- Join Group
+- Group List
+- Group Detail
+- Add Member
+- Remove Member
+- Member List
+
+### Expense Management
+- Add Expense
+- Edit Expense
+- Delete Expense
+- Expense Detail
+- Expense History
+
+### Split Bill
+- Equal Split
+- Custom Split
+- Percentage Split
+- Debt Calculation
+
+### Settlement
+- Settlement Processing
+- Payment Status
+- Settlement History
+- Debt Tracking
+
+---
+
+## Integration & Testing
+
+### Team Collaboration
+- Frontend Integration
+- Backend Integration
+- Testing
+- Bug Fixing
+- Documentation
+- Presentation
