@@ -3,6 +3,7 @@ import 'dart:ui' show PathMetric, PathMetrics;
 
 import 'package:flutter/material.dart';
 
+import '../../data/datasources/ocr_service.dart';
 import 'ocr_result_page.dart';
 
 class OCRCaptureResultPage extends StatefulWidget {
@@ -15,6 +16,65 @@ class OCRCaptureResultPage extends StatefulWidget {
 }
 
 class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
+  final OCRService _ocrService = const OCRService();
+  bool _isRunningOCR = false;
+
+  Future<void> _handleFinish() async {
+    if (_isRunningOCR) {
+      return;
+    }
+
+    setState(() {
+      _isRunningOCR = true;
+    });
+
+    try {
+      final String extractedText = await _ocrService.extractText(
+        widget.imagePath,
+      );
+
+      debugPrint(extractedText);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('OCR completed successfully')),
+        );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) {
+            return OCRResultPage(
+              merchant: 'Le Bistro',
+              total: 124.50,
+              date: DateTime(2023, 10, 24),
+              category: 'Ditempat',
+            );
+          },
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRunningOCR = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
@@ -86,7 +146,11 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
                 ),
               ),
             ),
-            _BottomActions(colorScheme: colorScheme),
+            _BottomActions(
+              colorScheme: colorScheme,
+              isRunningOCR: _isRunningOCR,
+              onFinish: _handleFinish,
+            ),
           ],
         ),
       ),
@@ -270,9 +334,15 @@ class _CropHandle extends StatelessWidget {
 }
 
 class _BottomActions extends StatelessWidget {
-  const _BottomActions({required this.colorScheme});
+  const _BottomActions({
+    required this.colorScheme,
+    required this.isRunningOCR,
+    required this.onFinish,
+  });
 
   final ColorScheme colorScheme;
+  final bool isRunningOCR;
+  final VoidCallback onFinish;
 
   @override
   Widget build(BuildContext context) {
@@ -290,26 +360,22 @@ class _BottomActions extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFE93635),
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFE93635),
+                disabledForegroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (BuildContext context) {
-                      return OCRResultPage(
-                        merchant: 'Le Bistro',
-                        total: 124.50,
-                        date: DateTime(2023, 10, 24),
-                        category: 'Ditempat',
-                      );
-                    },
-                  ),
-                );
-              },
-              icon: const Icon(Icons.check, size: 18),
+              onPressed: isRunningOCR ? null : onFinish,
+              icon: isRunningOCR
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.4,
+                      ),
+                    )
+                  : const Icon(Icons.check, size: 18),
               label: const Text(
                 'Selesai',
                 style: TextStyle(fontWeight: FontWeight.w700),
