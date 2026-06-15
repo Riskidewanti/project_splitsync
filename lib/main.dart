@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'features/ocr/presentation/pages/scan_page.dart';
+import 'features/ocr/presentation/pages/ocr_capture_result_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
