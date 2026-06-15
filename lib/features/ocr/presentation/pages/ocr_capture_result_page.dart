@@ -143,6 +143,8 @@ class _ReceiptImagePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String trimmedPath = imagePath.trim();
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(2),
       child: DecoratedBox(
@@ -155,22 +157,33 @@ class _ReceiptImagePreview extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(28),
-          child: Image.file(
-            File(imagePath),
-            fit: BoxFit.contain,
-            errorBuilder:
-                (BuildContext context, Object error, StackTrace? stackTrace) {
-                  return const Center(
-                    child: Icon(
-                      Icons.receipt_long_outlined,
-                      color: Colors.white54,
-                      size: 88,
-                    ),
-                  );
-                },
-          ),
+          child: trimmedPath.isEmpty
+              ? const _InvalidReceiptPreview()
+              : Image.file(
+                  File(trimmedPath),
+                  fit: BoxFit.contain,
+                  errorBuilder:
+                      (
+                        BuildContext context,
+                        Object error,
+                        StackTrace? stackTrace,
+                      ) {
+                        return const _InvalidReceiptPreview();
+                      },
+                ),
         ),
       ),
+    );
+  }
+}
+
+class _InvalidReceiptPreview extends StatelessWidget {
+  const _InvalidReceiptPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Icon(Icons.receipt_long_outlined, color: Colors.white54, size: 88),
     );
   }
 }
