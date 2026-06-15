@@ -4,6 +4,7 @@ import 'dart:ui' show PathMetric, PathMetrics;
 import 'package:flutter/material.dart';
 
 import '../../data/datasources/ocr_service.dart';
+import '../../data/utils/receipt_parser.dart';
 import 'ocr_result_page.dart';
 
 class OCRCaptureResultPage extends StatefulWidget {
@@ -17,6 +18,7 @@ class OCRCaptureResultPage extends StatefulWidget {
 
 class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
   final OCRService _ocrService = const OCRService();
+  final ReceiptParser _receiptParser = const ReceiptParser();
   bool _isRunningOCR = false;
 
   Future<void> _handleFinish() async {
@@ -32,8 +34,16 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       final String extractedText = await _ocrService.extractText(
         widget.imagePath,
       );
+      final Map<String, dynamic> parsedResult = _receiptParser.parse(
+        extractedText,
+      );
+      final String merchant = _parsedMerchant(parsedResult['merchant']);
+      final double total = _parsedTotal(parsedResult['total']);
+      final Object? items = parsedResult['items'];
 
-      debugPrint(extractedText);
+      debugPrint('Raw OCR text:\n$extractedText');
+      debugPrint('Parsed receipt result: $parsedResult');
+      debugPrint('Parsed receipt items: $items');
 
       if (!mounted) {
         return;
@@ -50,8 +60,8 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
         MaterialPageRoute<void>(
           builder: (BuildContext context) {
             return OCRResultPage(
-              merchant: 'Le Bistro',
-              total: 124.50,
+              merchant: merchant,
+              total: total,
               date: DateTime(2023, 10, 24),
               category: 'Ditempat',
             );
@@ -73,6 +83,30 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
         });
       }
     }
+  }
+
+  String _parsedMerchant(Object? value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+
+    return 'Unknown Merchant';
+  }
+
+  double _parsedTotal(Object? value) {
+    if (value is int) {
+      return value.toDouble();
+    }
+
+    if (value is double) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return 0;
   }
 
   @override
