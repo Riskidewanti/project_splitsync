@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'success_page.dart';
+
 class ConfirmExpensePage extends StatelessWidget {
   const ConfirmExpensePage({
     super.key,
@@ -386,7 +388,19 @@ class _BottomButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (BuildContext context) {
+                  return const SuccessPage(
+                    totalAmount: 142.50,
+                    participantCount: 3,
+                  );
+                },
+              ),
+            );
+          },
           child: const Text(
             'Konfirmasi',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),

@@ -102,22 +102,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                         foregroundColor: const Color(0xFFD71920),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (BuildContext context) {
-                              return const ConfirmExpensePage(
-                                merchantName: 'Whole Foods Market',
-                                totalAmount: 142.50,
-                                itemCount: 4,
-                                note: null,
-                                tags: <String>['dinner', 'supplies'],
-                              );
-                            },
-                          ),
-                        );
-                      },
+                      onPressed: () {},
                       icon: Container(
                         width: 28,
                         height: 28,
@@ -149,7 +134,22 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext context) {
+                              return const ConfirmExpensePage(
+                                merchantName: 'Whole Foods Market',
+                                totalAmount: 142.50,
+                                itemCount: 4,
+                                note: null,
+                                tags: <String>['dinner', 'supplies'],
+                              );
+                            },
+                          ),
+                        );
+                      },
                       child: const Text(
                         'KIRIM',
                         style: TextStyle(
