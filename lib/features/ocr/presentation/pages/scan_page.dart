@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'ocr_capture_result_page.dart';
 
@@ -11,6 +12,43 @@ class ScanPage extends StatefulWidget {
 
 class _ScanPageState extends State<ScanPage> {
   bool _isFlashOn = false;
+  bool _isCapturing = false;
+
+  Future<void> _captureReceipt() async {
+    if (_isCapturing) {
+      return;
+    }
+
+    setState(() {
+      _isCapturing = true;
+    });
+
+    try {
+      final XFile? image = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        imageQuality: 90,
+      );
+
+      if (!mounted || image == null) {
+        return;
+      }
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) {
+            return OCRCaptureResultPage(imagePath: image.path);
+          },
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCapturing = false;
+        });
+      }
+    }
+  }
 
   void _toggleFlash() {
     setState(() {
@@ -109,18 +147,8 @@ class _ScanPageState extends State<ScanPage> {
                   bottom: 30,
                   child: Center(
                     child: _CaptureButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (BuildContext context) {
-                              return const OCRCaptureResultPage(
-                                imagePath: 'demo_receipt.jpg',
-                              );
-                            },
-                          ),
-                        );
-                      },
+                      isLoading: _isCapturing,
+                      onPressed: _isCapturing ? null : _captureReceipt,
                     ),
                   ),
                 ),
@@ -278,14 +306,16 @@ class _CircleIconButton extends StatelessWidget {
 }
 
 class _CaptureButton extends StatelessWidget {
-  const _CaptureButton({required this.onPressed});
+  const _CaptureButton({required this.onPressed, required this.isLoading});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      enabled: onPressed != null,
       label: 'Capture receipt',
       child: GestureDetector(
         onTap: onPressed,
@@ -306,6 +336,15 @@ class _CaptureButton extends StatelessWidget {
                 color: const Color(0xFFE2333F),
                 border: Border.all(color: const Color(0xFF9E1720), width: 2),
               ),
+              child: isLoading
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      ),
+                    )
+                  : null,
             ),
           ),
         ),
