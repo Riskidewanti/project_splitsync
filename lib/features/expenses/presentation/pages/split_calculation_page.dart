@@ -90,7 +90,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                   const SizedBox(height: 22),
                   _MemberListCard(
                     members: widget.members,
-                    showPercentage: _selectedSegment == 1,
+                    selectedSegment: _selectedSegment,
                   ),
                   const SizedBox(height: 12),
                   Align(
@@ -239,10 +239,10 @@ class _SegmentButton extends StatelessWidget {
 }
 
 class _MemberListCard extends StatelessWidget {
-  const _MemberListCard({required this.members, required this.showPercentage});
+  const _MemberListCard({required this.members, required this.selectedSegment});
 
   final List<SplitMember> members;
-  final bool showPercentage;
+  final int selectedSegment;
 
   @override
   Widget build(BuildContext context) {
@@ -278,7 +278,7 @@ class _MemberListCard extends StatelessWidget {
             for (int index = 0; index < members.length; index++) ...<Widget>[
               _MemberRow(
                 member: members[index],
-                showPercentage: showPercentage,
+                selectedSegment: selectedSegment,
                 percentage: _displayPercentageFor(index),
               ),
               if (index != members.length - 1)
@@ -301,12 +301,12 @@ class _MemberListCard extends StatelessWidget {
 class _MemberRow extends StatelessWidget {
   const _MemberRow({
     required this.member,
-    required this.showPercentage,
+    required this.selectedSegment,
     required this.percentage,
   });
 
   final SplitMember member;
-  final bool showPercentage;
+  final int selectedSegment;
   final int percentage;
 
   @override
@@ -339,7 +339,7 @@ class _MemberRow extends StatelessWidget {
               ),
             ),
           ),
-          if (showPercentage) ...<Widget>[
+          if (selectedSegment == 1) ...<Widget>[
             const SizedBox(width: 10),
             _PercentageBox(percentage: percentage),
             const SizedBox(width: 16),
@@ -354,6 +354,20 @@ class _MemberRow extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
+          if (selectedSegment == 2) ...<Widget>[
+            const SizedBox(width: 16),
+            IconButton(
+              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+              onPressed: () {},
+              icon: const Icon(
+                Icons.edit_outlined,
+                size: 17,
+                color: Color(0xFF4B5563),
+              ),
+            ),
+          ],
         ],
       ),
     );
