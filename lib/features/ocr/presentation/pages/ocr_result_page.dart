@@ -9,12 +9,14 @@ class OCRResultPage extends StatelessWidget {
     required this.total,
     required this.date,
     required this.category,
+    required this.items,
   });
 
   final String merchant;
   final double total;
   final DateTime? date;
   final String category;
+  final List<ReceiptItem> items;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +80,7 @@ class OCRResultPage extends StatelessWidget {
                         category: category,
                       ),
                       const Spacer(),
-                      const _BottomActions(),
+                      _BottomActions(items: items),
                     ],
                   ),
                 ),
@@ -332,7 +334,9 @@ class _CategoryChip extends StatelessWidget {
 }
 
 class _BottomActions extends StatelessWidget {
-  const _BottomActions();
+  const _BottomActions({required this.items});
+
+  final List<ReceiptItem> items;
 
   @override
   Widget build(BuildContext context) {
@@ -375,27 +379,11 @@ class _BottomActions extends StatelessWidget {
                   context,
                   MaterialPageRoute<void>(
                     builder: (BuildContext context) {
-                      return const EditItemsPage(
-                        items: <ReceiptItem>[
-                          ReceiptItem(
-                            name: 'Truffle Fries',
-                            quantity: 1,
-                            price: 12,
-                          ),
-                          ReceiptItem(
-                            name: 'Red Wine (Glass)',
-                            quantity: 2,
-                            price: 45,
-                          ),
-                          ReceiptItem(
-                            name: 'Ribeye Steak',
-                            quantity: 1,
-                            price: 65,
-                          ),
-                        ],
-                        subtotal: 122,
-                        tax: 10.83,
-                        serviceFee: 24.40,
+                      return EditItemsPage(
+                        items: items,
+                        subtotal: _itemsSubtotal(items),
+                        tax: 0,
+                        serviceFee: 0,
                       );
                     },
                   ),
@@ -443,6 +431,12 @@ class _CardShell extends StatelessWidget {
       child: child,
     );
   }
+}
+
+double _itemsSubtotal(List<ReceiptItem> items) {
+  return items.fold<double>(0, (double subtotal, ReceiptItem item) {
+    return subtotal + item.price;
+  });
 }
 
 String _formatCurrency(double value) {

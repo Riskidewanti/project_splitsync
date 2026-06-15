@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/datasources/ocr_service.dart';
 import '../../data/utils/receipt_parser.dart';
+import 'edit_items_page.dart';
 import 'ocr_result_page.dart';
 
 class OCRCaptureResultPage extends StatefulWidget {
@@ -39,7 +40,7 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       );
       final String merchant = _parsedMerchant(parsedResult['merchant']);
       final double total = _parsedTotal(parsedResult['total']);
-      final Object? items = parsedResult['items'];
+      final List<ReceiptItem> items = _parsedItems(parsedResult['items']);
 
       debugPrint('Raw OCR text:\n$extractedText');
       debugPrint('Parsed receipt result: $parsedResult');
@@ -64,6 +65,7 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
               total: total,
               date: DateTime(2023, 10, 24),
               category: 'Ditempat',
+              items: items,
             );
           },
         ),
@@ -107,6 +109,29 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
     }
 
     return 0;
+  }
+
+  List<ReceiptItem> _parsedItems(Object? value) {
+    if (value is! List) {
+      return const <ReceiptItem>[];
+    }
+
+    return value
+        .whereType<Map>()
+        .map((Map<dynamic, dynamic> item) {
+          final Object? nameValue = item['name'];
+          final Object? priceValue = item['price'];
+          final String name = nameValue is String ? nameValue.trim() : '';
+          final double price = _parsedTotal(priceValue);
+
+          if (name.isEmpty || price <= 0) {
+            return null;
+          }
+
+          return ReceiptItem(name: name, quantity: 1, price: price);
+        })
+        .whereType<ReceiptItem>()
+        .toList();
   }
 
   @override
