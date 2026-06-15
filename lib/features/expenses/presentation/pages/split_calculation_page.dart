@@ -88,7 +88,10 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                     },
                   ),
                   const SizedBox(height: 22),
-                  _MemberListCard(members: widget.members),
+                  _MemberListCard(
+                    members: widget.members,
+                    showPercentage: _selectedSegment == 1,
+                  ),
                   const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -236,9 +239,10 @@ class _SegmentButton extends StatelessWidget {
 }
 
 class _MemberListCard extends StatelessWidget {
-  const _MemberListCard({required this.members});
+  const _MemberListCard({required this.members, required this.showPercentage});
 
   final List<SplitMember> members;
+  final bool showPercentage;
 
   @override
   Widget build(BuildContext context) {
@@ -271,21 +275,39 @@ class _MemberListCard extends StatelessWidget {
               ),
             )
           else
-            for (final SplitMember member in members) ...<Widget>[
-              _MemberRow(member: member),
-              if (member != members.last)
+            for (int index = 0; index < members.length; index++) ...<Widget>[
+              _MemberRow(
+                member: members[index],
+                showPercentage: showPercentage,
+                percentage: _displayPercentageFor(index),
+              ),
+              if (index != members.length - 1)
                 const Divider(height: 1, color: Color(0xFFE8EAEE)),
             ],
         ],
       ),
     );
   }
+
+  int _displayPercentageFor(int index) {
+    if (index == 0) {
+      return 50;
+    }
+
+    return 30;
+  }
 }
 
 class _MemberRow extends StatelessWidget {
-  const _MemberRow({required this.member});
+  const _MemberRow({
+    required this.member,
+    required this.showPercentage,
+    required this.percentage,
+  });
 
   final SplitMember member;
+  final bool showPercentage;
+  final int percentage;
 
   @override
   Widget build(BuildContext context) {
@@ -317,6 +339,11 @@ class _MemberRow extends StatelessWidget {
               ),
             ),
           ),
+          if (showPercentage) ...<Widget>[
+            const SizedBox(width: 10),
+            _PercentageBox(percentage: percentage),
+            const SizedBox(width: 16),
+          ],
           Text(
             _formatCurrency(member.amount),
             style: TextStyle(
@@ -324,6 +351,48 @@ class _MemberRow extends StatelessWidget {
                   ? const Color(0xFFD71920)
                   : const Color(0xFF111827),
               fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PercentageBox extends StatelessWidget {
+  const _PercentageBox({required this.percentage});
+
+  final int percentage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 66,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F2F7),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            '$percentage',
+            style: const TextStyle(
+              color: Color(0xFF475067),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 7),
+          const Text(
+            '%',
+            style: TextStyle(
+              color: Color(0xFF8A92A3),
+              fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
           ),
