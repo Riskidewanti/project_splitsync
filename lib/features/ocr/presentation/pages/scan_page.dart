@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'ocr_capture_result_page.dart';
+
 class ScanPage extends StatefulWidget {
   const ScanPage({super.key});
 
@@ -108,7 +110,16 @@ class _ScanPageState extends State<ScanPage> {
                   child: Center(
                     child: _CaptureButton(
                       onPressed: () {
-                        // Camera capture integration will be added later.
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext context) {
+                              return const OCRCaptureResultPage(
+                                imagePath: 'demo_receipt.jpg',
+                              );
+                            },
+                          ),
+                        );
                       },
                     ),
                   ),

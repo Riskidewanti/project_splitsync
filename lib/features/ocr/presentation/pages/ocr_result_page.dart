@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'edit_items_page.dart';
+
 class OCRResultPage extends StatelessWidget {
   const OCRResultPage({
     super.key,
@@ -368,7 +370,37 @@ class _BottomActions extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) {
+                      return const EditItemsPage(
+                        items: <ReceiptItem>[
+                          ReceiptItem(
+                            name: 'Truffle Fries',
+                            quantity: 1,
+                            price: 12,
+                          ),
+                          ReceiptItem(
+                            name: 'Red Wine (Glass)',
+                            quantity: 2,
+                            price: 45,
+                          ),
+                          ReceiptItem(
+                            name: 'Ribeye Steak',
+                            quantity: 1,
+                            price: 65,
+                          ),
+                        ],
+                        subtotal: 122,
+                        tax: 10.83,
+                        serviceFee: 24.40,
+                      );
+                    },
+                  ),
+                );
+              },
               label: const Text(
                 'Proses',
                 style: TextStyle(fontWeight: FontWeight.w800),

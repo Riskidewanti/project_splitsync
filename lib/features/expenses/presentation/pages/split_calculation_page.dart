@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'confirm_expense_page.dart';
+
 class SplitMember {
   const SplitMember({
     required this.name,
@@ -100,7 +102,22 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                         foregroundColor: const Color(0xFFD71920),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext context) {
+                              return const ConfirmExpensePage(
+                                merchantName: 'Whole Foods Market',
+                                totalAmount: 142.50,
+                                itemCount: 4,
+                                note: null,
+                                tags: <String>['dinner', 'supplies'],
+                              );
+                            },
+                          ),
+                        );
+                      },
                       icon: Container(
                         width: 28,
                         height: 28,

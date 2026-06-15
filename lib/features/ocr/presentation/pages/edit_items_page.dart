@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../expenses/presentation/pages/split_calculation_page.dart';
+
 class ReceiptItem {
   const ReceiptItem({
     required this.name,
@@ -104,7 +106,35 @@ class EditItemsPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext context) {
+                              return const SplitCalculationPage(
+                                totalAmount: 124.50,
+                                members: <SplitMember>[
+                                  SplitMember(
+                                    name: 'You',
+                                    avatarText: 'Y',
+                                    amount: 61.50,
+                                  ),
+                                  SplitMember(
+                                    name: 'Alex',
+                                    avatarText: 'A',
+                                    amount: 31.50,
+                                  ),
+                                  SplitMember(
+                                    name: 'Sarah',
+                                    avatarText: 'S',
+                                    amount: 31.50,
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        );
+                      },
                       label: const Text(
                         'KONFIRMASI & SPLIT',
                         style: TextStyle(

@@ -3,6 +3,8 @@ import 'dart:ui' show PathMetric, PathMetrics;
 
 import 'package:flutter/material.dart';
 
+import 'ocr_result_page.dart';
+
 class OCRCaptureResultPage extends StatefulWidget {
   const OCRCaptureResultPage({super.key, required this.imagePath});
 
@@ -279,7 +281,21 @@ class _BottomActions extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) {
+                      return OCRResultPage(
+                        merchant: 'Le Bistro',
+                        total: 124.50,
+                        date: DateTime(2023, 10, 24),
+                        category: 'Ditempat',
+                      );
+                    },
+                  ),
+                );
+              },
               icon: const Icon(Icons.check, size: 18),
               label: const Text(
                 'Selesai',
