@@ -41,6 +41,11 @@ class GroupMemberModel extends Equatable {
     required this.id,
     required this.groupId,
     required this.userId,
+
+    this.displayName,
+    this.email,
+    this.avatarUrl,
+
     required this.role,
     required this.status,
     required this.createdAt,
@@ -53,6 +58,11 @@ class GroupMemberModel extends Equatable {
   final String id;
   final String groupId;
   final String userId;
+
+  final String? displayName;
+  final String? email;
+  final String? avatarUrl;
+
   final String? invitedBy;
   final GroupMemberRole role;
   final GroupMemberStatus status;
