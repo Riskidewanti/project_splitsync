@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../authentication/auth_service.dart';
 import 'create_pin_page.dart';
 import 'pin_created_page.dart';
 
@@ -25,6 +26,7 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
       if (_confirmation == widget.pin) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('splitsync_pin', widget.pin);
+        await AuthService.markPinCreated(widget.pin);
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const PinCreatedPage()),

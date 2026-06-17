@@ -8,18 +8,32 @@ class SessionProfile {
     required this.id,
     required this.email,
     required this.username,
+    required this.pinCreated,
   });
 
   final String id;
   final String email;
   final String username;
+  final bool pinCreated;
 
   factory SessionProfile.fromMap(Map<String, dynamic> data) {
+    final email = (data['email'] ?? '').toString();
     return SessionProfile(
       id: (data['id'] ?? data['profile_id'] ?? data['email']).toString(),
-      email: (data['email'] ?? '').toString(),
-      username: (data['username'] ?? data['nama_pengguna'] ?? '').toString(),
+      email: email,
+      username:
+          (data['user_name'] ??
+                  data['nama_pengguna'] ??
+                  data['name'] ??
+                  _nameFromEmail(email))
+              .toString(),
+      pinCreated: data['pin_created'] == true,
     );
+  }
+
+  static String _nameFromEmail(String email) {
+    if (!email.contains('@')) return email;
+    return email.split('@').first;
   }
 }
 
@@ -29,6 +43,7 @@ class AuthService {
   static const _sessionId = 'splitsync_session_id';
   static const _sessionEmail = 'splitsync_session_email';
   static const _sessionUsername = 'splitsync_session_username';
+  static const _sessionPinCreated = 'splitsync_session_pin_created';
 
   static bool get isConfigured => SupabaseConfig.isConfigured;
 
@@ -47,8 +62,14 @@ class AuthService {
     final id = prefs.getString(_sessionId);
     final email = prefs.getString(_sessionEmail);
     final username = prefs.getString(_sessionUsername);
+    final pinCreated = prefs.getBool(_sessionPinCreated) ?? false;
     if (id == null || email == null || username == null) return null;
-    return SessionProfile(id: id, email: email, username: username);
+    return SessionProfile(
+      id: id,
+      email: email,
+      username: username,
+      pinCreated: pinCreated,
+    );
   }
 
   static Future<SessionProfile> login({
@@ -56,11 +77,17 @@ class AuthService {
     required String password,
   }) async {
     _guardConfiguration();
+    final normalizedEmail = email.trim().toLowerCase();
+    final normalizedPassword = password.trim();
+    if (normalizedEmail.isEmpty || normalizedPassword.isEmpty) {
+      throw const AuthException('Email dan password wajib diisi.');
+    }
+
     final row = await _client
         .from('profiles')
         .select()
-        .eq('email', email.trim())
-        .eq('password', password)
+        .eq('email', normalizedEmail)
+        .eq('password', normalizedPassword)
         .maybeSingle();
 
     if (row == null) {
@@ -78,10 +105,21 @@ class AuthService {
     required String password,
   }) async {
     _guardConfiguration();
+    final normalizedEmail = email.trim().toLowerCase();
+    final normalizedUsername = username.trim();
+    final normalizedPassword = password.trim();
+    if (normalizedEmail.isEmpty ||
+        normalizedUsername.isEmpty ||
+        normalizedPassword.isEmpty) {
+      throw const AuthException(
+        'Email, nama pengguna, dan password wajib diisi.',
+      );
+    }
+
     final existing = await _client
         .from('profiles')
         .select('email')
-        .eq('email', email.trim())
+        .eq('email', normalizedEmail)
         .maybeSingle();
 
     if (existing != null) {
@@ -91,14 +129,19 @@ class AuthService {
     final row = await _client
         .from('profiles')
         .insert({
-          'email': email.trim(),
-          'username': username.trim(),
-          'password': password,
+          'email': normalizedEmail,
+          'user_name': normalizedUsername,
+          'password': normalizedPassword,
         })
         .select()
         .single();
 
-    final profile = SessionProfile.fromMap(row);
+    final profile = SessionProfile(
+      id: (row['id'] ?? row['email']).toString(),
+      email: (row['email'] ?? normalizedEmail).toString(),
+      username: (row['user_name'] ?? normalizedUsername).toString(),
+      pinCreated: row['pin_created'] == true,
+    );
     await _saveSession(profile);
     return profile;
   }
@@ -108,6 +151,27 @@ class AuthService {
     await prefs.remove(_sessionId);
     await prefs.remove(_sessionEmail);
     await prefs.remove(_sessionUsername);
+    await prefs.remove(_sessionPinCreated);
+  }
+
+  static Future<void> markPinCreated(String pin) async {
+    _guardConfiguration();
+    final profile = await currentSession();
+    if (profile == null) return;
+
+    await _client
+        .from('profiles')
+        .update({'pin_created': true, 'pin_hash': pin})
+        .eq('email', profile.email);
+
+    await _saveSession(
+      SessionProfile(
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        pinCreated: true,
+      ),
+    );
   }
 
   static Future<void> _saveSession(SessionProfile profile) async {
@@ -115,6 +179,7 @@ class AuthService {
     await prefs.setString(_sessionId, profile.id);
     await prefs.setString(_sessionEmail, profile.email);
     await prefs.setString(_sessionUsername, profile.username);
+    await prefs.setBool(_sessionPinCreated, profile.pinCreated);
   }
 
   static void _guardConfiguration() {

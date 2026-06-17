@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../authentication/auth_service.dart';
 import '../widgets/responsive.dart';
+import 'add_pin_option_page.dart';
 import 'home_page.dart';
 import 'welcome_page.dart';
 
@@ -34,12 +35,14 @@ class _SplashScreenState extends State<SplashScreen>
     await Future<void>.delayed(const Duration(milliseconds: 2300));
     final profile = await AuthService.currentSession();
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) =>
-            profile == null ? const WelcomePage() : const HomePage(),
-      ),
-    );
+    final nextPage = profile == null
+        ? const WelcomePage()
+        : profile.pinCreated
+        ? const HomePage()
+        : const AddPinOptionPage();
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => nextPage));
   }
 
   @override
@@ -59,7 +62,8 @@ class _SplashScreenState extends State<SplashScreen>
           scrollable: true,
           padding: responsive.horizontal(24),
           child: SizedBox(
-            height: MediaQuery.sizeOf(context).height -
+            height:
+                MediaQuery.sizeOf(context).height -
                 MediaQuery.paddingOf(context).vertical,
             child: Column(
               children: [

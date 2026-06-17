@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../authentication/auth_service.dart';
 import '../widgets/responsive.dart';
 import 'add_pin_option_page.dart';
+import 'home_page.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -34,23 +35,28 @@ class _AuthPageState extends State<AuthPage> {
     if (_loading) return;
     setState(() => _loading = true);
     try {
+      final profile = _isLogin
+          ? await AuthService.login(
+              email: _loginEmail.text,
+              password: _loginPassword.text,
+            )
+          : await AuthService.register(
+              email: _registerEmail.text,
+              username: _registerUsername.text,
+              password: _registerPassword.text,
+            );
+
       if (_isLogin) {
-        await AuthService.login(
-          email: _loginEmail.text,
-          password: _loginPassword.text,
-        );
         _showNotice('Login berhasil. Selamat datang kembali.');
       } else {
-        await AuthService.register(
-          email: _registerEmail.text,
-          username: _registerUsername.text,
-          password: _registerPassword.text,
-        );
         _showNotice('Akun berhasil dibuat.');
       }
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AddPinOptionPage()),
+        MaterialPageRoute(
+          builder: (_) =>
+              profile.pinCreated ? const HomePage() : const AddPinOptionPage(),
+        ),
       );
     } catch (error) {
       _showNotice(
@@ -73,8 +79,9 @@ class _AuthPageState extends State<AuthPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor:
-            isError ? const Color(0xFF8E0010) : const Color(0xFFC8152B),
+        backgroundColor: isError
+            ? const Color(0xFF8E0010)
+            : const Color(0xFFC8152B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
@@ -90,7 +97,9 @@ class _AuthPageState extends State<AuthPage> {
           maxWidth: 430,
           scrollable: true,
           alignment: Alignment.center,
-          padding: responsive.horizontal(32).copyWith(
+          padding: responsive
+              .horizontal(32)
+              .copyWith(
                 top: responsive.space(24),
                 bottom: responsive.space(24),
               ),
@@ -355,8 +364,9 @@ class _InputField extends StatelessWidget {
         keyboardType: keyboardType,
         style: TextStyle(fontSize: responsive.font(16)),
         decoration: InputDecoration(
-          prefixIcon:
-              icon == null ? null : Icon(icon, color: const Color(0xFF666666)),
+          prefixIcon: icon == null
+              ? null
+              : Icon(icon, color: const Color(0xFF666666)),
           hintText: hint,
           hintStyle: TextStyle(
             color: const Color(0xFFC9C9C9),
