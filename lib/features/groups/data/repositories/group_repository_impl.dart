@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import '../../domain/repositories/group_repository.dart';
 import '../datasources/group_remote_data_source.dart';
 import '../models/group_expense_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
+import '../models/group_user_model.dart';
 
 class GroupRepositoryImpl implements GroupRepository {
   const GroupRepositoryImpl({required GroupRemoteDataSource remoteDataSource})
@@ -11,8 +14,41 @@ class GroupRepositoryImpl implements GroupRepository {
   final GroupRemoteDataSource _remoteDataSource;
 
   @override
-  Future<GroupModel> createGroup({required String name, String? description}) {
-    return _remoteDataSource.createGroup(name: name, description: description);
+  Future<String?> getCurrentUserId() {
+    return _remoteDataSource.getCurrentUserId();
+  }
+
+  @override
+  Future<GroupModel> createGroup({
+    required String name,
+    String? description,
+    String? photoUrl,
+    List<String> memberUserIds = const <String>[],
+  }) {
+    return _remoteDataSource.createGroup(
+      name: name,
+      description: description,
+      photoUrl: photoUrl,
+      memberUserIds: memberUserIds,
+    );
+  }
+
+  @override
+  Future<String> uploadGroupPhoto({
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+  }) {
+    return _remoteDataSource.uploadGroupPhoto(
+      bytes: bytes,
+      fileName: fileName,
+      contentType: contentType,
+    );
+  }
+
+  @override
+  Future<List<GroupUserModel>> searchUsers(String query) {
+    return _remoteDataSource.searchUsers(query);
   }
 
   @override

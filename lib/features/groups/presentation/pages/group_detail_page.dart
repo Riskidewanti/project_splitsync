@@ -29,6 +29,8 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
   GroupModel? _group;
   List<GroupMemberModel> _members = const <GroupMemberModel>[];
   List<GroupExpenseModel> _expenses = const <GroupExpenseModel>[];
+  String? _currentUserId;
+  String? _removingUserId;
   Object? _error;
   bool _isLoading = true;
 
@@ -45,6 +47,7 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
     });
 
     try {
+      final String? currentUserId = await _groupRepository.getCurrentUserId();
       final GroupModel? group = await _groupRepository.getGroupById(
         widget.groupId,
       );
@@ -58,6 +61,7 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
       }
 
       setState(() {
+        _currentUserId = currentUserId;
         _group = group;
         _members = members;
         _expenses = expenses;
@@ -110,6 +114,99 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
         icon: Icons.receipt_long_outlined,
       );
     }).toList();
+  }
+
+  bool get _canManageMembers {
+    final String? currentUserId = _currentUserId;
+    if (currentUserId == null) {
+      return false;
+    }
+
+    return _members.any((GroupMemberModel member) {
+      return member.userId == currentUserId &&
+          member.role == GroupMemberRole.owner;
+    });
+  }
+
+  int get _adminCount {
+    return _members.where((GroupMemberModel member) {
+      return member.role == GroupMemberRole.owner ||
+          member.role == GroupMemberRole.admin;
+    }).length;
+  }
+
+  bool _isLastAdminSelf(GroupMemberModel member) {
+    return member.userId == _currentUserId &&
+        (member.role == GroupMemberRole.owner ||
+            member.role == GroupMemberRole.admin) &&
+        _adminCount <= 1;
+  }
+
+  Future<void> _confirmRemoveMember(GroupMemberModel member) async {
+    if (!_canManageMembers || _removingUserId != null) {
+      return;
+    }
+
+    if (_isLastAdminSelf(member)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Tidak bisa menghapus admin terakhir dari grup.'),
+          ),
+        );
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Hapus anggota?'),
+          content: Text('${_memberName(member)} akan dihapus dari grup ini.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: GroupDetailPage.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Hapus'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _removingUserId = member.userId);
+
+    try {
+      await _groupRepository.removeMember(
+        groupId: widget.groupId,
+        userId: member.userId,
+      );
+      await _loadGroupDetail();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Gagal menghapus anggota: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _removingUserId = null);
+      }
+    }
   }
 
   String _memberName(GroupMemberModel member) {
@@ -216,6 +313,15 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
                       )
                     else
                       _BalanceList(balances: _balanceMembers),
+                    const SizedBox(height: 32),
+                    _MemberManagementSection(
+                      members: _members,
+                      canManage: _canManageMembers,
+                      currentUserId: _currentUserId,
+                      removingUserId: _removingUserId,
+                      isLastAdminSelf: _isLastAdminSelf,
+                      onRemove: _confirmRemoveMember,
+                    ),
                     const SizedBox(height: 32),
                     const _ExpenseHeader(),
                     const SizedBox(height: 14),
@@ -493,6 +599,173 @@ class _BalanceCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MemberManagementSection extends StatelessWidget {
+  const _MemberManagementSection({
+    required this.members,
+    required this.canManage,
+    required this.currentUserId,
+    required this.removingUserId,
+    required this.isLastAdminSelf,
+    required this.onRemove,
+  });
+
+  final List<GroupMemberModel> members;
+  final bool canManage;
+  final String? currentUserId;
+  final String? removingUserId;
+  final bool Function(GroupMemberModel member) isLastAdminSelf;
+  final ValueChanged<GroupMemberModel> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const _SectionTitle(title: 'Anggota Grup'),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: GroupDetailPage.borderColor),
+          ),
+          child: Column(
+            children: <Widget>[
+              for (int index = 0; index < members.length; index++)
+                _MemberManagementTile(
+                  member: members[index],
+                  showDivider: index != members.length - 1,
+                  canManage: canManage,
+                  isCurrentUser: members[index].userId == currentUserId,
+                  isRemoving: members[index].userId == removingUserId,
+                  removeDisabled: isLastAdminSelf(members[index]),
+                  onRemove: () => onRemove(members[index]),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MemberManagementTile extends StatelessWidget {
+  const _MemberManagementTile({
+    required this.member,
+    required this.showDivider,
+    required this.canManage,
+    required this.isCurrentUser,
+    required this.isRemoving,
+    required this.removeDisabled,
+    required this.onRemove,
+  });
+
+  final GroupMemberModel member;
+  final bool showDivider;
+  final bool canManage;
+  final bool isCurrentUser;
+  final bool isRemoving;
+  final bool removeDisabled;
+  final VoidCallback onRemove;
+
+  String get _displayName {
+    final String? displayName = member.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    final String? email = member.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      return email;
+    }
+
+    return 'Member ${member.userId.substring(0, 8)}';
+  }
+
+  String get _initial {
+    final String name = _displayName.trim();
+    return name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        border: showDivider
+            ? const Border(bottom: BorderSide(color: GroupDetailPage.borderColor))
+            : null,
+      ),
+      child: Row(
+        children: <Widget>[
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: const Color(0xFFDDEBFF),
+            backgroundImage: member.avatarUrl == null
+                ? null
+                : NetworkImage(member.avatarUrl!),
+            child: member.avatarUrl == null
+                ? Text(
+                    _initial,
+                    style: const TextStyle(
+                      color: GroupDetailPage.textDarkColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  isCurrentUser ? '$_displayName (Anda)' : _displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: GroupDetailPage.textDarkColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${member.role.value} - ${member.email ?? member.userId}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (canManage)
+            IconButton(
+              tooltip: removeDisabled
+                  ? 'Admin terakhir tidak bisa dihapus'
+                  : 'Hapus anggota',
+              onPressed: isRemoving || removeDisabled ? null : onRemove,
+              icon: isRemoving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline, size: 20),
+              color: GroupDetailPage.primaryColor,
+              visualDensity: VisualDensity.compact,
+            ),
+        ],
       ),
     );
   }
