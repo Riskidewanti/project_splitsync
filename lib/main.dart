@@ -10,8 +10,6 @@ Future<void> main() async {
     anonKey: 'sb_publishable_dpm-U61n41ih8DM8vGyNhQ_fMSyt5WL',
   );
 
-  print('Supabase Connected!');
-  print(Supabase.instance.client.auth.currentUser);
   runApp(const MyApp());
 }
 
@@ -20,6 +18,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: ScanPage());
+    return const MaterialApp(
+      home: ScanPage(),
+    );
   }
 }
