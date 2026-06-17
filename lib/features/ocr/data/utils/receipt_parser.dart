@@ -76,12 +76,14 @@ class ReceiptParser {
   }
 
   int? _amountAfterTotalLabel(List<String> lines, int totalLineIndex) {
-    for (int index = totalLineIndex + 1;
-        index < lines.length && index <= totalLineIndex + 2;
-        index += 1) {
+    final int lastIndex = (totalLineIndex + 8 < lines.length)
+        ? totalLineIndex + 8
+        : lines.length - 1;
+
+    for (int index = totalLineIndex + 1; index <= lastIndex; index += 1) {
       final String line = lines[index];
-      if (_isTotalLikeLine(line) || _isPaymentOrChangeLine(line)) {
-        break;
+      if (_shouldIgnoreAfterTotalLabel(line)) {
+        continue;
       }
 
       final int? amount = _lastAmountInLine(line);
@@ -147,7 +149,8 @@ class ReceiptParser {
 
     if (_containsAmount(line) ||
         _isReceiptMetadataLine(line) ||
-        _isMerchantMetadataLabel(line)) {
+        _isMerchantMetadataLabel(line) ||
+        _isRejectedMerchantCandidate(line)) {
       return false;
     }
 
@@ -181,7 +184,12 @@ class ReceiptParser {
     }
 
     if (RegExp(r"^[A-Z0-9 &.'-]+$").hasMatch(line)) {
+      // Debug: OCR merchant headers are often all-caps brand names near the top.
       score += 12;
+    }
+
+    if (_isUppercaseBrandName(line)) {
+      score += 18;
     }
 
     if (normalized.contains('coffee') ||
@@ -204,6 +212,34 @@ class ReceiptParser {
     return normalized.contains('tomoro coffee') ||
         normalized.contains('starbucks') ||
         normalized.contains('indomaret');
+  }
+
+  bool _isRejectedMerchantCandidate(String line) {
+    final String normalized = line
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    // Debug: payment rails and channels can appear before the real merchant.
+    return normalized == 'BCA' ||
+        normalized == 'OVO' ||
+        normalized == 'GOPAY' ||
+        normalized == 'DANA' ||
+        normalized == 'QRIS' ||
+        normalized == 'VISA' ||
+        normalized == 'MASTERCARD' ||
+        normalized == 'CHANNEL';
+  }
+
+  bool _isUppercaseBrandName(String line) {
+    final int letterCount = RegExp(r'[A-Za-z]').allMatches(line).length;
+    if (letterCount < 3) {
+      return false;
+    }
+
+    final String lettersOnly = line.replaceAll(RegExp(r'[^A-Za-z]'), '');
+    return lettersOnly == lettersOnly.toUpperCase();
   }
 
   bool _isMerchantMetadataLabel(String line) {
@@ -244,6 +280,15 @@ class ReceiptParser {
         _isTransactionIdLine(line) ||
         _isCustomerCareLine(line) ||
         _isFooterLine(line);
+  }
+
+  bool _shouldIgnoreAfterTotalLabel(String line) {
+    return _isReceiptMetadataLine(line) ||
+        _isMerchantMetadataLabel(line) ||
+        _isRejectedMerchantCandidate(line) ||
+        _isPaymentOrChangeLine(line) ||
+        _isChannelLine(line) ||
+        _isSubtotalLine(line);
   }
 
   bool _isReceiptMetadataLine(String line) {
@@ -377,6 +422,20 @@ class ReceiptParser {
         normalized.contains('change') ||
         normalized.contains('paid') ||
         normalized.contains('payment');
+  }
+
+  bool _isChannelLine(String line) {
+    final String normalized = line
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    return normalized == 'FS' ||
+        normalized == 'EDC' ||
+        normalized == 'CARD' ||
+        normalized == 'BANK' ||
+        normalized.startsWith('CHANNEL ');
   }
 
   bool _isTotalLikeLine(String line) {
