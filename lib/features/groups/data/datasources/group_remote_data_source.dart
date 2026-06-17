@@ -10,6 +10,8 @@ abstract class GroupRemoteDataSource {
 
   Future<GroupModel?> getGroupById(String groupId);
 
+  Future<List<GroupMemberModel>> getGroupMembers(String groupId);
+
   Future<GroupMemberModel> addMember({
     required String groupId,
     required String userId,
@@ -99,6 +101,22 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     }
 
     return GroupModel.fromJson(row);
+  }
+
+  @override
+  Future<List<GroupMemberModel>> getGroupMembers(String groupId) async {
+    final List<dynamic> rows = await _client
+        .from('group_members')
+        .select()
+        .eq('group_id', groupId)
+        .eq('status', GroupMemberStatus.active.value)
+        .order('joined_at')
+        .order('created_at');
+
+    return rows
+        .map((dynamic row) => row as Map<String, dynamic>)
+        .map(GroupMemberModel.fromJson)
+        .toList();
   }
 
   @override

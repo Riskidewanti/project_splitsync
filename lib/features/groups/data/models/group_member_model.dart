@@ -1,4 +1,4 @@
-﻿import 'package:equatable/equatable.dart';
+import 'package:equatable/equatable.dart';
 
 enum GroupMemberRole {
   owner('owner'),
@@ -30,7 +30,8 @@ enum GroupMemberStatus {
   static GroupMemberStatus fromValue(String value) {
     return GroupMemberStatus.values.firstWhere(
       (GroupMemberStatus status) => status.value == value,
-      orElse: () => throw FormatException('Unknown group member status: $value'),
+      orElse: () =>
+          throw FormatException('Unknown group member status: $value'),
     );
   }
 }
@@ -66,9 +67,7 @@ class GroupMemberModel extends Equatable {
       groupId: _requiredString(json['group_id'], 'group_id'),
       userId: _requiredString(json['user_id'], 'user_id'),
       invitedBy: json['invited_by'] as String?,
-      role: GroupMemberRole.fromValue(
-        _requiredString(json['role'], 'role'),
-      ),
+      role: GroupMemberRole.fromValue(_requiredString(json['role'], 'role')),
       status: GroupMemberStatus.fromValue(
         _requiredString(json['status'], 'status'),
       ),
@@ -126,17 +125,17 @@ class GroupMemberModel extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        id,
-        groupId,
-        userId,
-        invitedBy,
-        role,
-        status,
-        joinedAt,
-        leftAt,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    groupId,
+    userId,
+    invitedBy,
+    role,
+    status,
+    joinedAt,
+    leftAt,
+    createdAt,
+    updatedAt,
+  ];
 }
 
 const Object _sentinel = Object();

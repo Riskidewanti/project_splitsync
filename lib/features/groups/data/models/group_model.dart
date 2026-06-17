@@ -1,4 +1,4 @@
-﻿import 'package:equatable/equatable.dart';
+import 'package:equatable/equatable.dart';
 
 class GroupModel extends Equatable {
   const GroupModel({
@@ -69,14 +69,14 @@ class GroupModel extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        id,
-        name,
-        description,
-        createdBy,
-        archivedAt,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    name,
+    description,
+    createdBy,
+    archivedAt,
+    createdAt,
+    updatedAt,
+  ];
 }
 
 const Object _sentinel = Object();

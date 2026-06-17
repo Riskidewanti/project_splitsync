@@ -25,6 +25,11 @@ class GroupRepositoryImpl implements GroupRepository {
   }
 
   @override
+  Future<List<GroupMemberModel>> getGroupMembers(String groupId) {
+    return _remoteDataSource.getGroupMembers(groupId);
+  }
+
+  @override
   Future<GroupMemberModel> addMember({
     required String groupId,
     required String userId,
