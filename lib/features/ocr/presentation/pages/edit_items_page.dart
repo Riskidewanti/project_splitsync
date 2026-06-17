@@ -12,9 +12,17 @@ class ReceiptItem {
   final String name;
   final int quantity;
   final double price;
+
+  ReceiptItem copyWith({String? name, int? quantity, double? price}) {
+    return ReceiptItem(
+      name: name ?? this.name,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
+    );
+  }
 }
 
-class EditItemsPage extends StatelessWidget {
+class EditItemsPage extends StatefulWidget {
   const EditItemsPage({
     super.key,
     required this.items,
@@ -28,7 +36,145 @@ class EditItemsPage extends StatelessWidget {
   final double tax;
   final double serviceFee;
 
+  @override
+  State<EditItemsPage> createState() => _EditItemsPageState();
+}
+
+class _EditItemsPageState extends State<EditItemsPage> {
+  late final List<ReceiptItem> _items = List<ReceiptItem>.from(widget.items);
+
+  double get subtotal {
+    return _items.fold<double>(
+      0,
+      (double total, ReceiptItem item) => total + item.price,
+    );
+  }
+
+  double get tax => widget.tax;
+
+  double get serviceFee => widget.serviceFee;
+
   double get total => subtotal + tax + serviceFee;
+
+  Future<void> _addItem() async {
+    final ReceiptItem? item = await _showItemDialog();
+    if (item == null) {
+      return;
+    }
+
+    setState(() {
+      _items.add(item);
+    });
+  }
+
+  Future<void> _editItem(ReceiptItem item) async {
+    final ReceiptItem? updatedItem = await _showItemDialog(item: item);
+    if (updatedItem == null) {
+      return;
+    }
+
+    setState(() {
+      final int index = _items.indexOf(item);
+      if (index != -1) {
+        _items[index] = updatedItem;
+      }
+    });
+  }
+
+  void _deleteItem(ReceiptItem item) {
+    setState(() {
+      _items.remove(item);
+    });
+  }
+
+  Future<ReceiptItem?> _showItemDialog({ReceiptItem? item}) {
+    final TextEditingController nameController = TextEditingController(
+      text: item?.name ?? '',
+    );
+    final TextEditingController priceController = TextEditingController(
+      text: item == null ? '' : item.price.toStringAsFixed(2),
+    );
+
+    return showDialog<ReceiptItem>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(item == null ? 'Tambah Barang' : 'Edit Barang'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Nama barang',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: priceController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Harga',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            if (item != null)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _deleteItem(item);
+                },
+                child: const Text('Hapus'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final String name = nameController.text.trim();
+                final double? price = double.tryParse(
+                  priceController.text.trim().replaceAll(',', '.'),
+                );
+
+                if (name.isEmpty || price == null || price <= 0) {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('Nama dan harga barang wajib valid.'),
+                      ),
+                    );
+                  return;
+                }
+
+                Navigator.pop(
+                  dialogContext,
+                  ReceiptItem(
+                    name: name,
+                    quantity: item?.quantity ?? 1,
+                    price: price,
+                  ),
+                );
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    ).whenComplete(() {
+      nameController.dispose();
+      priceController.dispose();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +229,11 @@ class EditItemsPage extends StatelessWidget {
                   Expanded(
                     child: ListView(
                       children: <Widget>[
-                        _ItemsCard(items: items),
+                        _ItemsCard(
+                          items: _items,
+                          onAddItem: _addItem,
+                          onEditItem: _editItem,
+                        ),
                         const SizedBox(height: 18),
                         _SummaryCard(
                           subtotal: subtotal,
@@ -111,9 +261,9 @@ class EditItemsPage extends StatelessWidget {
                           context,
                           MaterialPageRoute<void>(
                             builder: (BuildContext context) {
-                              return const SplitCalculationPage(
-                                totalAmount: 124.50,
-                                members: <SplitMember>[
+                              return SplitCalculationPage(
+                                totalAmount: total,
+                                members: const <SplitMember>[
                                   SplitMember(
                                     name: 'You',
                                     avatarText: 'Y',
@@ -158,9 +308,15 @@ class EditItemsPage extends StatelessWidget {
 }
 
 class _ItemsCard extends StatelessWidget {
-  const _ItemsCard({required this.items});
+  const _ItemsCard({
+    required this.items,
+    required this.onAddItem,
+    required this.onEditItem,
+  });
 
   final List<ReceiptItem> items;
+  final VoidCallback onAddItem;
+  final ValueChanged<ReceiptItem> onEditItem;
 
   @override
   Widget build(BuildContext context) {
@@ -201,7 +357,7 @@ class _ItemsCard extends StatelessWidget {
             const _EmptyItemsRow()
           else
             for (final ReceiptItem item in items) ...<Widget>[
-              _ItemRow(item: item),
+              _ItemRow(item: item, onEdit: () => onEditItem(item)),
               if (item != items.last)
                 const Divider(height: 1, color: Color(0xFFE8EAEE)),
             ],
@@ -218,7 +374,7 @@ class _ItemsCard extends StatelessWidget {
                 ),
               ),
             ),
-            onPressed: () {},
+            onPressed: onAddItem,
             icon: const Icon(Icons.add_circle_outline, size: 17),
             label: const Text(
               'Tambah Barang',
@@ -232,9 +388,10 @@ class _ItemsCard extends StatelessWidget {
 }
 
 class _ItemRow extends StatelessWidget {
-  const _ItemRow({required this.item});
+  const _ItemRow({required this.item, required this.onEdit});
 
   final ReceiptItem item;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +437,7 @@ class _ItemRow extends StatelessWidget {
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
             visualDensity: VisualDensity.compact,
-            onPressed: () {},
+            onPressed: onEdit,
             icon: const Icon(
               Icons.edit_outlined,
               size: 17,
