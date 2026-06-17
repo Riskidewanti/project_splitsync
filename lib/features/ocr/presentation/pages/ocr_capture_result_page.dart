@@ -35,6 +35,9 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       final String extractedText = await _ocrService.extractText(
         widget.imagePath,
       );
+      print('===== OCR RAW TEXT =====');
+      print(extractedText);
+      print('========================');
       final Map<String, dynamic> parsedResult = _receiptParser.parse(
         extractedText,
       );
