@@ -5,14 +5,18 @@ import 'confirm_expense_page.dart';
 
 class SplitMember {
   const SplitMember({
-    required this.name,
+    required this.userId,
+    required this.displayName,
     required this.avatarText,
     required this.amount,
   });
 
-  final String name;
+  final String userId;
+  final String displayName;
   final String avatarText;
   final double amount;
+
+  String get name => displayName;
 }
 
 class SplitCalculationPage extends StatefulWidget {
@@ -26,6 +30,7 @@ class SplitCalculationPage extends StatefulWidget {
     required this.serviceFee,
     required this.totalAmount,
     required this.members,
+    required this.currentUserId,
   });
 
   final String merchantName;
@@ -36,6 +41,7 @@ class SplitCalculationPage extends StatefulWidget {
   final double serviceFee;
   final double totalAmount;
   final List<SplitMember> members;
+  final String currentUserId;
 
   @override
   State<SplitCalculationPage> createState() => _SplitCalculationPageState();
@@ -177,7 +183,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
     }
 
     final int currentUserIndex = widget.members.indexWhere(
-      (SplitMember member) => member.name.toLowerCase() == 'you',
+      (SplitMember member) => member.userId == widget.currentUserId,
     );
     final int index = currentUserIndex == -1 ? 0 : currentUserIndex;
 
@@ -187,7 +193,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
   double? get _currentUserPercentage {
     if (_selectedSegment == 1 && _percentageControllers.isNotEmpty) {
       final int currentUserIndex = widget.members.indexWhere(
-        (SplitMember member) => member.name.toLowerCase() == 'you',
+        (SplitMember member) => member.userId == widget.currentUserId,
       );
       final int index = currentUserIndex == -1 ? 0 : currentUserIndex;
 
@@ -296,6 +302,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                   const SizedBox(height: 22),
                   _MemberListCard(
                     members: widget.members,
+                    currentUserId: widget.currentUserId,
                     selectedSegment: _selectedSegment,
                     amounts: _splitAmounts,
                     percentageControllers: _percentageControllers,
@@ -464,6 +471,7 @@ class _SegmentButton extends StatelessWidget {
 class _MemberListCard extends StatelessWidget {
   const _MemberListCard({
     required this.members,
+    required this.currentUserId,
     required this.selectedSegment,
     required this.amounts,
     required this.percentageControllers,
@@ -471,6 +479,7 @@ class _MemberListCard extends StatelessWidget {
   });
 
   final List<SplitMember> members;
+  final String currentUserId;
   final int selectedSegment;
   final List<double> amounts;
   final List<TextEditingController> percentageControllers;
@@ -510,6 +519,7 @@ class _MemberListCard extends StatelessWidget {
             for (int index = 0; index < members.length; index++) ...<Widget>[
               _MemberRow(
                 member: members[index],
+                currentUserId: currentUserId,
                 selectedSegment: selectedSegment,
                 amount: amounts[index],
                 percentageController: percentageControllers[index],
@@ -527,6 +537,7 @@ class _MemberListCard extends StatelessWidget {
 class _MemberRow extends StatelessWidget {
   const _MemberRow({
     required this.member,
+    required this.currentUserId,
     required this.selectedSegment,
     required this.amount,
     required this.percentageController,
@@ -534,6 +545,7 @@ class _MemberRow extends StatelessWidget {
   });
 
   final SplitMember member;
+  final String currentUserId;
   final int selectedSegment;
   final double amount;
   final TextEditingController percentageController;
@@ -582,7 +594,7 @@ class _MemberRow extends StatelessWidget {
             Text(
               _formatCurrency(amount),
               style: TextStyle(
-                color: member.name.toLowerCase() == 'you'
+                color: member.userId == currentUserId
                     ? const Color(0xFFD71920)
                     : const Color(0xFF111827),
                 fontSize: 13,

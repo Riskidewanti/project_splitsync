@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../expenses/presentation/pages/split_calculation_page.dart';
+import '../../../groups/data/datasources/group_remote_data_source.dart';
+import '../../../groups/data/models/group_member_model.dart';
+import '../../../groups/data/models/group_model.dart';
+import '../../../groups/data/repositories/group_repository_impl.dart';
 
 class ReceiptItem {
   const ReceiptItem({
@@ -31,6 +36,7 @@ class EditItemsPage extends StatefulWidget {
     required this.subtotal,
     required this.tax,
     required this.serviceFee,
+    this.groupId,
   });
 
   final String merchantName;
@@ -39,13 +45,145 @@ class EditItemsPage extends StatefulWidget {
   final double subtotal;
   final double tax;
   final double serviceFee;
+  final String? groupId;
 
   @override
   State<EditItemsPage> createState() => _EditItemsPageState();
 }
 
 class _EditItemsPageState extends State<EditItemsPage> {
+  final GroupRepositoryImpl _groupRepository = GroupRepositoryImpl(
+    remoteDataSource: GroupRemoteDataSourceImpl(),
+  );
   late final List<ReceiptItem> _items = List<ReceiptItem>.from(widget.items);
+  List<SplitMember> _members = const <SplitMember>[];
+  String? _currentUserId;
+  bool _isLoadingMembers = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGroupMembers();
+  }
+
+  Future<void> _loadGroupMembers() async {
+    final User? currentUser = Supabase.instance.client.auth.currentUser;
+    final String? currentUserId = currentUser?.id;
+
+    if (currentUserId == null) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _currentUserId = null;
+        _members = const <SplitMember>[];
+        _isLoadingMembers = false;
+      });
+      return;
+    }
+
+    try {
+      final String? groupId = await _resolveGroupId(currentUserId);
+      final List<GroupMemberModel> groupMembers = groupId == null
+          ? const <GroupMemberModel>[]
+          : await _groupRepository.getGroupMembers(groupId);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _currentUserId = currentUserId;
+        _members = _buildSplitMembers(groupMembers, currentUser!);       
+        _isLoadingMembers = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _currentUserId = currentUserId;
+        _members = const <SplitMember>[];
+        _isLoadingMembers = false;
+      });
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Gagal memuat anggota: $error')));
+    }
+  }
+
+  Future<String?> _resolveGroupId(String currentUserId) async {
+    if (widget.groupId != null && widget.groupId!.trim().isNotEmpty) {
+      return widget.groupId!.trim();
+    }
+
+    final List<GroupModel> groups = await _groupRepository.getUserGroups(
+      currentUserId,
+    );
+    if (groups.isEmpty) {
+      return null;
+    }
+
+    return groups.first.id;
+  }
+
+  List<SplitMember> _buildSplitMembers(
+    List<GroupMemberModel> groupMembers,
+    User currentUser,
+  ) {
+    if (groupMembers.isEmpty) {
+      return const <SplitMember>[];
+    }
+
+    final double splitAmount = total / groupMembers.length;
+
+    return groupMembers.map((GroupMemberModel member) {
+      final String displayName = member.userId == currentUser.id
+          ? _currentUserDisplayName(currentUser)
+          : _fallbackDisplayName(member.userId);
+
+      return SplitMember(
+        userId: member.userId,
+        displayName: displayName,
+        avatarText: _avatarText(displayName),
+        amount: splitAmount,
+      );
+    }).toList();
+  }
+
+  String _currentUserDisplayName(User currentUser) {
+    final Map<String, dynamic>? metadata = currentUser.userMetadata;
+    final Object? metadataName =
+        metadata?['display_name'] ?? metadata?['full_name'] ?? metadata?['name'];
+
+    if (metadataName is String && metadataName.trim().isNotEmpty) {
+      return metadataName.trim();
+    }
+
+    final String? email = currentUser.email;
+    if (email != null && email.trim().isNotEmpty) {
+      return email.trim();
+    }
+
+    return _fallbackDisplayName(currentUser.id);
+  }
+
+  String _fallbackDisplayName(String userId) {
+    final String shortId = userId.length <= 8 ? userId : userId.substring(0, 8);
+    return 'Member $shortId';
+  }
+
+  String _avatarText(String displayName) {
+    final String trimmedName = displayName.trim();
+    if (trimmedName.isEmpty) {
+      return '?';
+    }
+
+    return trimmedName.characters.first.toUpperCase();
+  }
 
   double get subtotal {
     return _items.fold<double>(
@@ -59,6 +197,37 @@ class _EditItemsPageState extends State<EditItemsPage> {
   double get serviceFee => widget.serviceFee;
 
   double get total => subtotal + tax + serviceFee;
+
+  void _openSplitCalculation() {
+    final String? currentUserId = _currentUserId;
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Login diperlukan untuk split.')),
+        );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return SplitCalculationPage(
+            merchantName: widget.merchantName,
+            expenseDate: widget.expenseDate,
+            items: List<ReceiptItem>.unmodifiable(_items),
+            subtotal: subtotal,
+            tax: tax,
+            serviceFee: serviceFee,
+            totalAmount: total,
+            members: _members,
+            currentUserId: currentUserId,
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _addItem() async {
     final ReceiptItem? item = await _showItemDialog();
@@ -260,41 +429,7 @@ class _EditItemsPageState extends State<EditItemsPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (BuildContext context) {
-                              return SplitCalculationPage(
-                                merchantName: widget.merchantName,
-                                expenseDate: widget.expenseDate,
-                                items: List<ReceiptItem>.unmodifiable(_items),
-                                subtotal: subtotal,
-                                tax: tax,
-                                serviceFee: serviceFee,
-                                totalAmount: total,
-                                members: const <SplitMember>[
-                                  SplitMember(
-                                    name: 'You',
-                                    avatarText: 'Y',
-                                    amount: 61.50,
-                                  ),
-                                  SplitMember(
-                                    name: 'Alex',
-                                    avatarText: 'A',
-                                    amount: 31.50,
-                                  ),
-                                  SplitMember(
-                                    name: 'Sarah',
-                                    avatarText: 'S',
-                                    amount: 31.50,
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        );
-                      },
+                      onPressed: _isLoadingMembers ? null : _openSplitCalculation,
                       label: const Text(
                         'KONFIRMASI & SPLIT',
                         style: TextStyle(
