@@ -30,6 +30,150 @@ class SplitCalculationPage extends StatefulWidget {
 
 class _SplitCalculationPageState extends State<SplitCalculationPage> {
   int _selectedSegment = 0;
+  late List<TextEditingController> _percentageControllers;
+  late List<TextEditingController> _customAmountControllers;
+
+  @override
+  void initState() {
+    super.initState();
+    _percentageControllers = _buildPercentageControllers();
+    _customAmountControllers = _buildCustomAmountControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant SplitCalculationPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.members.length != widget.members.length ||
+        oldWidget.totalAmount != widget.totalAmount) {
+      _disposeControllers(_percentageControllers);
+      _disposeControllers(_customAmountControllers);
+      _percentageControllers = _buildPercentageControllers();
+      _customAmountControllers = _buildCustomAmountControllers();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposeControllers(_percentageControllers);
+    _disposeControllers(_customAmountControllers);
+    super.dispose();
+  }
+
+  List<TextEditingController> _buildPercentageControllers() {
+    if (widget.members.isEmpty) {
+      return <TextEditingController>[];
+    }
+
+    final double basePercentage = 100 / widget.members.length;
+    double assignedPercentage = 0;
+
+    return List<TextEditingController>.generate(widget.members.length, (
+      int index,
+    ) {
+      final double percentage = index == widget.members.length - 1
+          ? 100 - assignedPercentage
+          : basePercentage;
+      assignedPercentage += percentage;
+
+      return TextEditingController(text: _formatInputNumber(percentage))
+        ..addListener(_recalculate);
+    });
+  }
+
+  List<TextEditingController> _buildCustomAmountControllers() {
+    return widget.members.map((SplitMember member) {
+      return TextEditingController(text: _formatInputNumber(member.amount))
+        ..addListener(_recalculate);
+    }).toList();
+  }
+
+  void _disposeControllers(List<TextEditingController> controllers) {
+    for (final TextEditingController controller in controllers) {
+      controller.dispose();
+    }
+  }
+
+  void _recalculate() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  List<double> get _splitAmounts {
+    if (widget.members.isEmpty) {
+      return <double>[];
+    }
+
+    if (_selectedSegment == 1) {
+      return _percentageControllers.map((TextEditingController controller) {
+        final double percentage = _parseNumber(controller.text);
+        return widget.totalAmount * percentage / 100;
+      }).toList();
+    }
+
+    if (_selectedSegment == 2) {
+      return _customAmountControllers.map((TextEditingController controller) {
+        return _parseNumber(controller.text);
+      }).toList();
+    }
+
+    final double equalAmount = widget.totalAmount / widget.members.length;
+    return List<double>.filled(widget.members.length, equalAmount);
+  }
+
+  String? get _validationMessage {
+    if (_selectedSegment == 1) {
+      final double totalPercentage = _percentageControllers.fold<double>(
+        0,
+        (double total, TextEditingController controller) =>
+            total + _parseNumber(controller.text),
+      );
+
+      if ((totalPercentage - 100).abs() > 0.01) {
+        return 'Total persentase harus 100%.';
+      }
+    }
+
+    if (_selectedSegment == 2) {
+      final double assignedTotal = _customAmountControllers.fold<double>(
+        0,
+        (double total, TextEditingController controller) =>
+            total + _parseNumber(controller.text),
+      );
+
+      if ((assignedTotal - widget.totalAmount).abs() > 0.01) {
+        return 'Total kustom harus ${_formatCurrency(widget.totalAmount)}.';
+      }
+    }
+
+    return null;
+  }
+
+  void _submit() {
+    final String? validationMessage = _validationMessage;
+    if (validationMessage != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validationMessage)));
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return const ConfirmExpensePage(
+            merchantName: 'Whole Foods Market',
+            totalAmount: 142.50,
+            itemCount: 4,
+            note: null,
+            tags: <String>['dinner', 'supplies'],
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +237,24 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                   _MemberListCard(
                     members: widget.members,
                     selectedSegment: _selectedSegment,
+                    amounts: _splitAmounts,
+                    percentageControllers: _percentageControllers,
+                    customAmountControllers: _customAmountControllers,
                   ),
+                  if (_validationMessage != null) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _validationMessage!,
+                        style: const TextStyle(
+                          color: Color(0xFFD71920),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -134,22 +295,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (BuildContext context) {
-                              return const ConfirmExpensePage(
-                                merchantName: 'Whole Foods Market',
-                                totalAmount: 142.50,
-                                itemCount: 4,
-                                note: null,
-                                tags: <String>['dinner', 'supplies'],
-                              );
-                            },
-                          ),
-                        );
-                      },
+                      onPressed: _submit,
                       child: const Text(
                         'KIRIM',
                         style: TextStyle(
@@ -256,10 +402,19 @@ class _SegmentButton extends StatelessWidget {
 }
 
 class _MemberListCard extends StatelessWidget {
-  const _MemberListCard({required this.members, required this.selectedSegment});
+  const _MemberListCard({
+    required this.members,
+    required this.selectedSegment,
+    required this.amounts,
+    required this.percentageControllers,
+    required this.customAmountControllers,
+  });
 
   final List<SplitMember> members;
   final int selectedSegment;
+  final List<double> amounts;
+  final List<TextEditingController> percentageControllers;
+  final List<TextEditingController> customAmountControllers;
 
   @override
   Widget build(BuildContext context) {
@@ -296,7 +451,9 @@ class _MemberListCard extends StatelessWidget {
               _MemberRow(
                 member: members[index],
                 selectedSegment: selectedSegment,
-                percentage: _displayPercentageFor(index),
+                amount: amounts[index],
+                percentageController: percentageControllers[index],
+                customAmountController: customAmountControllers[index],
               ),
               if (index != members.length - 1)
                 const Divider(height: 1, color: Color(0xFFE8EAEE)),
@@ -305,26 +462,22 @@ class _MemberListCard extends StatelessWidget {
       ),
     );
   }
-
-  int _displayPercentageFor(int index) {
-    if (index == 0) {
-      return 50;
-    }
-
-    return 30;
-  }
 }
 
 class _MemberRow extends StatelessWidget {
   const _MemberRow({
     required this.member,
     required this.selectedSegment,
-    required this.percentage,
+    required this.amount,
+    required this.percentageController,
+    required this.customAmountController,
   });
 
   final SplitMember member;
   final int selectedSegment;
-  final int percentage;
+  final double amount;
+  final TextEditingController percentageController;
+  final TextEditingController customAmountController;
 
   @override
   Widget build(BuildContext context) {
@@ -358,21 +511,25 @@ class _MemberRow extends StatelessWidget {
           ),
           if (selectedSegment == 1) ...<Widget>[
             const SizedBox(width: 10),
-            _PercentageBox(percentage: percentage),
+            _PercentageBox(controller: percentageController),
             const SizedBox(width: 16),
           ],
-          Text(
-            _formatCurrency(member.amount),
-            style: TextStyle(
-              color: member.name.toLowerCase() == 'you'
-                  ? const Color(0xFFD71920)
-                  : const Color(0xFF111827),
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
           if (selectedSegment == 2) ...<Widget>[
+            const SizedBox(width: 10),
+            _AmountBox(controller: customAmountController),
             const SizedBox(width: 16),
+          ] else
+            Text(
+              _formatCurrency(amount),
+              style: TextStyle(
+                color: member.name.toLowerCase() == 'you'
+                    ? const Color(0xFFD71920)
+                    : const Color(0xFF111827),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          if (selectedSegment == 2) ...<Widget>[
             IconButton(
               constraints: const BoxConstraints.tightFor(width: 32, height: 32),
               padding: EdgeInsets.zero,
@@ -392,9 +549,9 @@ class _MemberRow extends StatelessWidget {
 }
 
 class _PercentageBox extends StatelessWidget {
-  const _PercentageBox({required this.percentage});
+  const _PercentageBox({required this.controller});
 
-  final int percentage;
+  final TextEditingController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -410,15 +567,27 @@ class _PercentageBox extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(
-            '$percentage',
-            style: const TextStyle(
-              color: Color(0xFF475067),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+          SizedBox(
+            width: 34,
+            child: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isCollapsed: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: const TextStyle(
+                color: Color(0xFF475067),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
-          const SizedBox(width: 7),
+          const SizedBox(width: 3),
           const Text(
             '%',
             style: TextStyle(
@@ -428,6 +597,46 @@ class _PercentageBox extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AmountBox extends StatelessWidget {
+  const _AmountBox({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 92,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F2F7),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textAlign: TextAlign.center,
+        decoration: const InputDecoration(
+          prefixText: r'$ ',
+          prefixStyle: TextStyle(
+            color: Color(0xFF8A92A3),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+          border: InputBorder.none,
+          isCollapsed: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        style: const TextStyle(
+          color: Color(0xFF111827),
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -448,4 +657,21 @@ String _formatCurrency(double value) {
   }
 
   return '\$${buffer.toString()}.${parts.last}';
+}
+
+String _formatInputNumber(double value) {
+  final String fixed = value.toStringAsFixed(2);
+  if (fixed.endsWith('.00')) {
+    return fixed.substring(0, fixed.length - 3);
+  }
+
+  return fixed;
+}
+
+double _parseNumber(String value) {
+  final String normalized = value
+      .replaceAll(',', '')
+      .replaceAll(r'$', '')
+      .trim();
+  return double.tryParse(normalized) ?? 0;
 }
