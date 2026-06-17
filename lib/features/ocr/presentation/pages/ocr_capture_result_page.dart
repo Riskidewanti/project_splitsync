@@ -41,6 +41,9 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       final Map<String, dynamic> parsedResult = _receiptParser.parse(
         extractedText,
       );
+      print('===== OCR PARSED RESULT =====');
+      print(parsedResult);
+      print('=============================');
       final String merchant = _parsedMerchant(parsedResult['merchant']);
       final double total = _parsedTotal(parsedResult['total']);
       final List<ReceiptItem> items = _parsedItems(parsedResult['items']);
