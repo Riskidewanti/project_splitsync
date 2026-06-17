@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/add_category_bottom_sheet.dart';
+
 class CreateGroupPage extends StatefulWidget {
   const CreateGroupPage({super.key});
 
@@ -17,14 +19,45 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
   final TextEditingController _groupNameController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  late final List<_CategoryOption> _categories;
   int _selectedCategoryIndex = 1;
 
-  static const List<_CategoryOption> _categories = <_CategoryOption>[
-    _CategoryOption(label: 'Home', icon: Icons.home_outlined),
-    _CategoryOption(label: 'Travel', icon: Icons.flight),
-    _CategoryOption(label: 'Food', icon: Icons.restaurant),
-    _CategoryOption(label: 'Custom', icon: Icons.add),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _categories = <_CategoryOption>[
+      const _CategoryOption(label: 'Home', icon: Icons.home_outlined),
+      const _CategoryOption(label: 'Travel', icon: Icons.flight),
+      const _CategoryOption(label: 'Food', icon: Icons.restaurant),
+      const _CategoryOption(
+        label: 'Custom',
+        icon: Icons.add,
+        isCustomAction: true,
+      ),
+    ];
+  }
+
+  Future<void> _handleCategoryTap(int index) async {
+    final _CategoryOption category = _categories[index];
+    if (!category.isCustomAction) {
+      setState(() => _selectedCategoryIndex = index);
+      return;
+    }
+
+    final CategoryDraft? draft = await showAddCategoryBottomSheet(context);
+    if (!mounted || draft == null) {
+      return;
+    }
+
+    final int insertIndex = _categories.length - 1;
+    setState(() {
+      _categories.insert(
+        insertIndex,
+        _CategoryOption(label: draft.name, icon: draft.icon),
+      );
+      _selectedCategoryIndex = insertIndex;
+    });
+  }
 
   static const List<MockMember> _members = <MockMember>[
     MockMember(
@@ -115,9 +148,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                             isSelected: _selectedCategoryIndex == index,
                             primaryRed: _primaryRed,
                             borderColor: _borderColor,
-                            onTap: () {
-                              setState(() => _selectedCategoryIndex = index);
-                            },
+                            onTap: () => _handleCategoryTap(index),
                           ),
                           if (index != _categories.length - 1)
                             const SizedBox(width: 14),
@@ -180,10 +211,15 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 }
 
 class _CategoryOption {
-  const _CategoryOption({required this.label, required this.icon});
+  const _CategoryOption({
+    required this.label,
+    required this.icon,
+    this.isCustomAction = false,
+  });
 
   final String label;
   final IconData icon;
+  final bool isCustomAction;
 }
 
 class MockMember {
