@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:camera/camera.dart';
 
 import 'ocr_capture_result_page.dart';
+
+enum _CameraStatus { loading, ready, permissionDenied, unavailable, error }
 
 class ScanPage extends StatefulWidget {
   const ScanPage({super.key});
@@ -10,12 +12,205 @@ class ScanPage extends StatefulWidget {
   State<ScanPage> createState() => _ScanPageState();
 }
 
-class _ScanPageState extends State<ScanPage> {
+class _ScanPageState extends State<ScanPage> with WidgetsBindingObserver {
+  CameraController? _cameraController;
+  _CameraStatus _cameraStatus = _CameraStatus.loading;
+  String? _cameraMessage;
   bool _isFlashOn = false;
   bool _isCapturing = false;
+  bool _isInitializing = false;
+  bool _isFlashAvailable = true;
+
+  bool get _isCameraReady {
+    final CameraController? controller = _cameraController;
+    return _cameraStatus == _CameraStatus.ready &&
+        controller != null &&
+        controller.value.isInitialized;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeCamera();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!_isCameraReady && !_isInitializing) {
+        _initializeCamera();
+      }
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _releaseCamera();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _releaseCamera();
+    super.dispose();
+  }
+
+  Future<void> _initializeCamera() async {
+    if (_isInitializing) {
+      return;
+    }
+
+    _isInitializing = true;
+    _setCameraStatus(_CameraStatus.loading);
+
+    try {
+      await _releaseCamera();
+
+      final List<CameraDescription> cameras = await availableCameras();
+      if (!mounted) {
+        return;
+      }
+
+      if (cameras.isEmpty) {
+        _setCameraStatus(
+          _CameraStatus.unavailable,
+          message: 'No camera was found on this device.',
+        );
+        return;
+      }
+
+      final CameraController controller = CameraController(
+        _preferredCamera(cameras),
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+
+      _cameraController = controller;
+      await controller.initialize();
+      if (!mounted || _cameraController != controller) {
+        await controller.dispose();
+        return;
+      }
+
+      await controller.lockCaptureOrientation();
+      _isFlashAvailable = true;
+      await _setFlashMode(FlashMode.off, updateUi: false);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _cameraStatus = _CameraStatus.ready;
+        _cameraMessage = null;
+        _isFlashOn = false;
+      });
+    } on CameraException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _handleCameraException(error);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _setCameraStatus(
+        _CameraStatus.error,
+        message: 'Unable to initialize camera.',
+      );
+    } finally {
+      _isInitializing = false;
+    }
+  }
+
+  CameraDescription _preferredCamera(List<CameraDescription> cameras) {
+    for (final CameraDescription camera in cameras) {
+      if (camera.lensDirection == CameraLensDirection.back) {
+        return camera;
+      }
+    }
+
+    return cameras.first;
+  }
+
+  Future<void> _releaseCamera() async {
+    final CameraController? controller = _cameraController;
+    _cameraController = null;
+    if (controller != null) {
+      await controller.dispose();
+    }
+  }
+
+  void _setCameraStatus(_CameraStatus status, {String? message}) {
+    if (!mounted) {
+      return;
+    }
+
+    if (_cameraStatus == status && _cameraMessage == message) {
+      return;
+    }
+
+    setState(() {
+      _cameraStatus = status;
+      _cameraMessage = message;
+      if (status != _CameraStatus.ready) {
+        _isFlashOn = false;
+      }
+    });
+  }
+
+  void _handleCameraException(CameraException error) {
+    final bool isPermissionError = switch (error.code) {
+      'CameraAccessDenied' ||
+      'CameraAccessDeniedWithoutPrompt' ||
+      'CameraAccessRestricted' => true,
+      _ => false,
+    };
+
+    _setCameraStatus(
+      isPermissionError ? _CameraStatus.permissionDenied : _CameraStatus.error,
+      message: isPermissionError
+          ? 'Camera access is required to scan receipts.'
+          : 'Unable to initialize camera.',
+    );
+  }
+
+  Future<void> _setFlashMode(
+    FlashMode mode, {
+    required bool updateUi,
+  }) async {
+    final CameraController? controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    try {
+      await controller.setFlashMode(mode);
+      if (!mounted || !updateUi) {
+        return;
+      }
+      setState(() {
+        _isFlashOn = mode == FlashMode.torch;
+        _isFlashAvailable = true;
+      });
+    } on CameraException {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isFlashOn = false;
+        _isFlashAvailable = false;
+      });
+    }
+  }
 
   Future<void> _captureReceipt() async {
-    if (_isCapturing) {
+    final CameraController? controller = _cameraController;
+    if (_isCapturing || controller == null || !controller.value.isInitialized) {
       return;
     }
 
@@ -24,12 +219,9 @@ class _ScanPageState extends State<ScanPage> {
     });
 
     try {
-      final XFile? image = await ImagePicker().pickImage(
-        source: ImageSource.camera,
-        imageQuality: 90,
-      );
+      final XFile image = await controller.takePicture();
 
-      if (!mounted || image == null) {
+      if (!mounted) {
         return;
       }
 
@@ -50,10 +242,15 @@ class _ScanPageState extends State<ScanPage> {
     }
   }
 
-  void _toggleFlash() {
-    setState(() {
-      _isFlashOn = !_isFlashOn;
-    });
+  Future<void> _toggleFlash() async {
+    if (!_isCameraReady || !_isFlashAvailable) {
+      return;
+    }
+
+    await _setFlashMode(
+      _isFlashOn ? FlashMode.off : FlashMode.torch,
+      updateUi: true,
+    );
   }
 
   @override
@@ -74,7 +271,14 @@ class _ScanPageState extends State<ScanPage> {
 
             return Stack(
               children: <Widget>[
-                const Positioned.fill(child: _CameraPlaceholder()),
+                Positioned.fill(
+                  child: _CameraBackground(
+                    controller: _cameraController,
+                    status: _cameraStatus,
+                    message: _cameraMessage,
+                    onRetry: _initializeCamera,
+                  ),
+                ),
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -106,8 +310,12 @@ class _ScanPageState extends State<ScanPage> {
                   child: _CircleIconButton(
                     icon: _isFlashOn ? Icons.flash_on : Icons.flash_off,
                     backgroundColor: Colors.black.withValues(alpha: 0.38),
-                    foregroundColor: Colors.white,
-                    onPressed: _toggleFlash,
+                    foregroundColor: _isCameraReady && _isFlashAvailable
+                        ? Colors.white
+                        : Colors.white54,
+                    onPressed: _isCameraReady && _isFlashAvailable
+                        ? _toggleFlash
+                        : null,
                   ),
                 ),
                 Align(
@@ -148,7 +356,9 @@ class _ScanPageState extends State<ScanPage> {
                   child: Center(
                     child: _CaptureButton(
                       isLoading: _isCapturing,
-                      onPressed: _isCapturing ? null : _captureReceipt,
+                      onPressed: _isCapturing || !_isCameraReady
+                          ? null
+                          : _captureReceipt,
                     ),
                   ),
                 ),
@@ -161,24 +371,233 @@ class _ScanPageState extends State<ScanPage> {
   }
 }
 
+class _CameraBackground extends StatelessWidget {
+  const _CameraBackground({
+    required this.controller,
+    required this.status,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final CameraController? controller;
+  final _CameraStatus status;
+  final String? message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final CameraController? activeController = controller;
+    final bool isReady = status == _CameraStatus.ready &&
+        activeController != null &&
+        activeController.value.isInitialized;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        const _CameraPlaceholder(),
+        if (isReady)
+          _FadingCameraPreview(controller: activeController)
+        else if (status == _CameraStatus.loading)
+          const _CameraLoadingView()
+        else
+          _CameraErrorView(
+            status: status,
+            message: message,
+            onRetry: onRetry,
+          ),
+      ],
+    );
+  }
+}
+
+class _LiveCameraPreview extends StatelessWidget {
+  const _LiveCameraPreview({required this.controller});
+
+  final CameraController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: controller.value.previewSize?.height ?? 1,
+        height: controller.value.previewSize?.width ?? 1,
+        child: CameraPreview(controller),
+      ),
+    );
+  }
+}
+
+class _FadingCameraPreview extends StatefulWidget {
+  const _FadingCameraPreview({required this.controller});
+
+  final CameraController controller;
+
+  @override
+  State<_FadingCameraPreview> createState() => _FadingCameraPreviewState();
+}
+
+class _FadingCameraPreviewState extends State<_FadingCameraPreview> {
+  bool _isVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _isVisible = true;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _isVisible ? 1 : 0,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+      child: _LiveCameraPreview(controller: widget.controller),
+    );
+  }
+}
+
 class _CameraPlaceholder extends StatelessWidget {
   const _CameraPlaceholder();
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: <Color>[
-            const Color(0xFF3A302A),
-            const Color(0xFF111111),
-            const Color(0xFF2A1C14),
+            Color(0xFF3A302A),
+            Color(0xFF111111),
+            Color(0xFF2A1C14),
           ],
         ),
       ),
       child: CustomPaint(painter: _PlaceholderTexturePainter()),
+    );
+  }
+}
+
+class _CameraLoadingView extends StatelessWidget {
+  const _CameraLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          SizedBox.square(
+            dimension: 34,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 3,
+            ),
+          ),
+          SizedBox(height: 18),
+          Text(
+            'Preparing Camera...',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Please wait...',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CameraErrorView extends StatelessWidget {
+  const _CameraErrorView({
+    required this.status,
+    required this.message,
+    required this.onRetry,
+  });
+
+  final _CameraStatus status;
+  final String? message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isPermissionDenied = status == _CameraStatus.permissionDenied;
+    final String title = switch (status) {
+      _CameraStatus.permissionDenied => 'Camera access is required',
+      _CameraStatus.unavailable => 'Camera unavailable',
+      _ => 'Unable to initialize camera',
+    };
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 34),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.camera_alt_outlined,
+              color: Colors.white,
+              size: 44,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message ?? 'Please try again.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black87,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                ),
+              ),
+              onPressed: onRetry,
+              icon: Icon(
+                isPermissionDenied ? Icons.camera_alt_outlined : Icons.refresh,
+                size: 17,
+              ),
+              label: Text(
+                isPermissionDenied ? 'Try Again' : 'Retry',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -288,7 +707,7 @@ class _CircleIconButton extends StatelessWidget {
   final IconData icon;
   final Color backgroundColor;
   final Color foregroundColor;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
