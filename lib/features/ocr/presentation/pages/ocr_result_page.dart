@@ -452,20 +452,20 @@ double _itemsSubtotal(List<ReceiptItem> items) {
 }
 
 String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
+  final int amount = value.round();
+  final String digits = amount.abs().toString();
   final StringBuffer buffer = StringBuffer();
 
-  for (int i = 0; i < whole.length; i++) {
-    final int reverseIndex = whole.length - i;
-    buffer.write(whole[i]);
+  for (int i = 0; i < digits.length; i++) {
+    final int reverseIndex = digits.length - i;
+    buffer.write(digits[i]);
     if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
+      buffer.write('.');
     }
   }
 
-  return '\$${buffer.toString()}.${parts.last}';
+  final String prefix = amount < 0 ? '-Rp ' : 'Rp ';
+  return '$prefix${buffer.toString()}';
 }
 
 String _formatDate(DateTime? date) {
