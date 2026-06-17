@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
-import 'features/groups/presentation/pages/create_group_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'features/ocr/presentation/pages/scan_page.dart';
+import 'features/groups/presentation/pages/group_home_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://mkdacnbbvjgekosdhevw.supabase.co',
+    publishableKey: 'sb_publishable_dpm-U61n41ih8DM8vGyNhQ_fMSyt5WL',
+  );
+
+  debugPrint('Supabase Connected!');
+  debugPrint('${Supabase.instance.client.auth.currentUser}');
   runApp(const MyApp());
 }
 
@@ -10,9 +21,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: CreateGroupPage(),
-    );
+    return MaterialApp(home: const GroupHomePage());
   }
 }

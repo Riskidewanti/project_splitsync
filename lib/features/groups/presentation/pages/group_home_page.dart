@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'create_group_page.dart';
+import 'group_detail_page.dart';
 import '../widgets/group_card.dart';
 
 class GroupHomePage extends StatelessWidget {
@@ -57,15 +58,28 @@ class GroupHomePage extends StatelessWidget {
                     index < _groups.length;
                     index++
                   ) ...<Widget>[
-                    GroupCard(
-                      title: _groups[index].title,
-                      subtitle: _groups[index].subtitle,
-                      amount: _groups[index].amount,
-                      statusLabel: _groups[index].statusLabel,
-                      statusStyle: _groups[index].statusStyle,
-                      icon: _groups[index].icon,
-                      memberInitials: _groups[index].memberInitials,
-                      extraMemberCount: _groups[index].extraMemberCount,
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const GroupDetailPage(),
+                            ),
+                          );
+                        },
+                        child: GroupCard(
+                          title: _groups[index].title,
+                          subtitle: _groups[index].subtitle,
+                          amount: _groups[index].amount,
+                          statusLabel: _groups[index].statusLabel,
+                          statusStyle: _groups[index].statusStyle,
+                          icon: _groups[index].icon,
+                          memberInitials: _groups[index].memberInitials,
+                          extraMemberCount: _groups[index].extraMemberCount,
+                        ),
+                      ),
                     ),
                     if (index != _groups.length - 1) const SizedBox(height: 8),
                   ],
