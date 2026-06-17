@@ -1,72 +1,150 @@
 import 'package:flutter/material.dart';
 
-class GroupDetailPage extends StatelessWidget {
-  const GroupDetailPage({super.key});
+import '../../../../core/utils/currency_formatter.dart';
+import '../../data/datasources/group_remote_data_source.dart';
+import '../../data/models/group_expense_model.dart';
+import '../../data/models/group_member_model.dart';
+import '../../data/models/group_model.dart';
+import '../../data/repositories/group_repository_impl.dart';
 
-  static const Color _primaryColor = Color(0xFFC70F1B);
-  static const Color _backgroundColor = Color(0xFFFBF7F4);
-  static const Color _textDarkColor = Color(0xFF1F2933);
-  static const Color _borderColor = Color(0xFFE5E7EB);
-  static const Color _greenColor = Color(0xFF00A86B);
+class GroupDetailPage extends StatefulWidget {
+  const GroupDetailPage({super.key, required this.groupId});
 
-  static const List<_BalanceMember> _balances = <_BalanceMember>[
-    _BalanceMember(
-      name: 'Kamu',
-      initial: 'Y',
-      status: 'Berhutang Rp 120.500',
-      avatarColor: Color(0xFFE0323D),
-      statusColor: _primaryColor,
-      textColor: Colors.white,
-    ),
-    _BalanceMember(
-      name: 'Alex M.',
-      initial: 'A',
-      status: 'Mendapat Rp 340.000',
-      avatarColor: Color(0xFFD9EAFE),
-      statusColor: _greenColor,
-      textColor: _textDarkColor,
-    ),
-    _BalanceMember(
-      name: 'Sam T.',
-      initial: 'S',
-      status: 'Berhutang Rp 219.500',
-      avatarColor: Color(0xFFD9EAFE),
-      statusColor: _primaryColor,
-      textColor: _textDarkColor,
-    ),
-  ];
+  final String groupId;
 
-  static const List<_ExpenseItem> _expenses = <_ExpenseItem>[
-    _ExpenseItem(
-      title: 'Le Jules Verne',
-      subtitle: 'Alex membayar • Oct 12',
-      amount: 'Rp 420.000',
-      note: 'Kamu Hutang Rp 140.000',
-      noteColor: _textDarkColor,
-      icon: Icons.restaurant,
-    ),
-    _ExpenseItem(
-      title: 'EasyJet Flights',
-      subtitle: 'Sam membayar • Oct 10',
-      amount: 'Rp 850.000',
-      note: 'Tidak Ikut',
-      noteColor: _greenColor,
-      icon: Icons.flight,
-    ),
-    _ExpenseItem(
-      title: 'Eurostar Tickets',
-      subtitle: 'Kamu membayar • Oct 08',
-      amount: 'Rp 320.000',
-      note: 'Kamu meminjamkan Rp 213.33',
-      noteColor: _greenColor,
-      icon: Icons.train,
-    ),
-  ];
+  static const Color primaryColor = Color(0xFFC70F1B);
+  static const Color backgroundColor = Color(0xFFFBF7F4);
+  static const Color textDarkColor = Color(0xFF1F2933);
+  static const Color borderColor = Color(0xFFE5E7EB);
+
+  @override
+  State<GroupDetailPage> createState() => _GroupDetailPageState();
+}
+
+class _GroupDetailPageState extends State<GroupDetailPage> {
+  final GroupRepositoryImpl _groupRepository = GroupRepositoryImpl(
+    remoteDataSource: GroupRemoteDataSourceImpl(),
+  );
+
+  GroupModel? _group;
+  List<GroupMemberModel> _members = const <GroupMemberModel>[];
+  List<GroupExpenseModel> _expenses = const <GroupExpenseModel>[];
+  Object? _error;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGroupDetail();
+  }
+
+  Future<void> _loadGroupDetail() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final GroupModel? group = await _groupRepository.getGroupById(
+        widget.groupId,
+      );
+      final List<GroupMemberModel> members = await _groupRepository
+          .getGroupMembers(widget.groupId);
+      final List<GroupExpenseModel> expenses = await _groupRepository
+          .getGroupExpenses(widget.groupId);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _group = group;
+        _members = members;
+        _expenses = expenses;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _error = error;
+        _isLoading = false;
+      });
+    }
+  }
+
+  double get _totalExpense {
+    return _expenses.fold<double>(
+      0,
+      (double total, GroupExpenseModel expense) => total + expense.totalAmount,
+    );
+  }
+
+  List<_BalanceMember> get _balanceMembers {
+    return _members.map((GroupMemberModel member) {
+      final String name = _memberName(member);
+      return _BalanceMember(
+        name: name,
+        initial: _initialFor(name),
+        status: 'Saldo belum dihitung',
+        avatarColor: const Color(0xFFD9EAFE),
+        statusColor: const Color(0xFF6B7280),
+        textColor: GroupDetailPage.textDarkColor,
+      );
+    }).toList();
+  }
+
+  List<_ExpenseItem> get _expenseItems {
+    return _expenses.map((GroupExpenseModel expense) {
+      return _ExpenseItem(
+        title: expense.merchantName?.trim().isNotEmpty == true
+            ? expense.merchantName!
+            : expense.title,
+        subtitle:
+            '${_payerLabel(expense.payerId)} membayar - ${_dateLabel(expense.expenseDate)}',
+        amount: formatRupiah(expense.totalAmount),
+        note: expense.status,
+        noteColor: GroupDetailPage.textDarkColor,
+        icon: Icons.receipt_long_outlined,
+      );
+    }).toList();
+  }
+
+  String _memberName(GroupMemberModel member) {
+    if (member.displayName != null && member.displayName!.trim().isNotEmpty) {
+      return member.displayName!.trim();
+    }
+    if (member.email != null && member.email!.trim().isNotEmpty) {
+      return member.email!.trim();
+    }
+    return 'Member ${member.userId.substring(0, 8)}';
+  }
+
+  String _payerLabel(String payerId) {
+    for (final GroupMemberModel member in _members) {
+      if (member.userId == payerId) {
+        return _memberName(member);
+      }
+    }
+    return 'Member ${payerId.substring(0, 8)}';
+  }
+
+  String _initialFor(String name) {
+    final String trimmed = name.trim();
+    return trimmed.isEmpty ? '?' : trimmed.characters.first.toUpperCase();
+  }
+
+  String _dateLabel(DateTime dateTime) {
+    final DateTime local = dateTime.toLocal();
+    return '${local.day}/${local.month}/${local.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: GroupDetailPage.backgroundColor,
       appBar: AppBar(
         toolbarHeight: 96,
         backgroundColor: Colors.white,
@@ -77,16 +155,22 @@ class GroupDetailPage extends StatelessWidget {
           padding: const EdgeInsets.only(left: 20, top: 18),
           child: IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back, color: _textDarkColor, size: 24),
+            icon: const Icon(
+              Icons.arrow_back,
+              color: GroupDetailPage.textDarkColor,
+              size: 24,
+            ),
           ),
         ),
         centerTitle: true,
-        title: const Padding(
-          padding: EdgeInsets.only(top: 18),
+        title: Padding(
+          padding: const EdgeInsets.only(top: 18),
           child: Text(
-            'Detail Group',
-            style: TextStyle(
-              color: _textDarkColor,
+            _group?.name ?? 'Detail Group',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: GroupDetailPage.textDarkColor,
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
@@ -94,7 +178,7 @@ class GroupDetailPage extends StatelessWidget {
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: _borderColor),
+          child: Container(height: 1, color: GroupDetailPage.borderColor),
         ),
       ),
       body: SafeArea(
@@ -102,21 +186,49 @@ class GroupDetailPage extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(23, 18, 23, 112),
-              children: <Widget>[
-                const _SummaryCard(),
-                const SizedBox(height: 12),
-                const _ActionButtons(),
-                const SizedBox(height: 32),
-                const _SectionTitle(title: 'Saldo'),
-                const SizedBox(height: 8),
-                const _BalanceList(balances: _balances),
-                const SizedBox(height: 32),
-                const _ExpenseHeader(),
-                const SizedBox(height: 14),
-                _ExpenseList(expenses: _expenses),
-              ],
+            child: RefreshIndicator(
+              onRefresh: _loadGroupDetail,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(23, 18, 23, 112),
+                children: <Widget>[
+                  if (_isLoading)
+                    const _DetailLoadingState()
+                  else if (_error != null)
+                    _DetailErrorState(
+                      error: _error!,
+                      onRetry: _loadGroupDetail,
+                    )
+                  else if (_group == null)
+                    const _DetailEmptyState(message: 'Grup tidak ditemukan.')
+                  else ...<Widget>[
+                    _SummaryCard(
+                      totalExpense: _totalExpense,
+                      balanceLabel: 'Split balance belum tersedia',
+                    ),
+                    const SizedBox(height: 12),
+                    const _ActionButtons(),
+                    const SizedBox(height: 32),
+                    const _SectionTitle(title: 'Saldo'),
+                    const SizedBox(height: 8),
+                    if (_balanceMembers.isEmpty)
+                      const _DetailEmptyState(
+                        message: 'Belum ada anggota aktif.',
+                      )
+                    else
+                      _BalanceList(balances: _balanceMembers),
+                    const SizedBox(height: 32),
+                    const _ExpenseHeader(),
+                    const SizedBox(height: 14),
+                    if (_expenseItems.isEmpty)
+                      const _DetailEmptyState(
+                        message:
+                            'Belum ada pengeluaran grup. TODO: hubungkan alur tambah pengeluaran ke groupId aktif.',
+                      )
+                    else
+                      _ExpenseList(expenses: _expenseItems),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
@@ -124,7 +236,7 @@ class GroupDetailPage extends StatelessWidget {
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
         elevation: 5,
-        backgroundColor: _primaryColor,
+        backgroundColor: GroupDetailPage.primaryColor,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: const Icon(Icons.add, size: 34),
@@ -170,7 +282,10 @@ class _ExpenseItem {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard();
+  const _SummaryCard({required this.totalExpense, required this.balanceLabel});
+
+  final double totalExpense;
+  final String balanceLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +295,7 @@ class _SummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: GroupDetailPage._borderColor),
+        border: Border.all(color: GroupDetailPage.borderColor),
       ),
       child: Column(
         children: <Widget>[
@@ -194,12 +309,12 @@ class _SummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          const FittedBox(
+          FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              'Rp 4.250.000',
-              style: TextStyle(
-                color: GroupDetailPage._textDarkColor,
+              formatRupiah(totalExpense),
+              style: const TextStyle(
+                color: GroupDetailPage.textDarkColor,
                 fontSize: 34,
                 fontWeight: FontWeight.w900,
               ),
@@ -212,10 +327,10 @@ class _SummaryCard extends StatelessWidget {
               color: const Color(0xFFDDEBFF),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Text(
-              '↑ Kamu Menerima Rp 1.020.500',
-              style: TextStyle(
-                color: GroupDetailPage._primaryColor,
+            child: Text(
+              balanceLabel,
+              style: const TextStyle(
+                color: GroupDetailPage.primaryColor,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
               ),
@@ -240,7 +355,7 @@ class _ActionButtons extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: () {},
               style: FilledButton.styleFrom(
-                backgroundColor: GroupDetailPage._primaryColor,
+                backgroundColor: GroupDetailPage.primaryColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -261,8 +376,8 @@ class _ActionButtons extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: () {},
               style: OutlinedButton.styleFrom(
-                foregroundColor: GroupDetailPage._textDarkColor,
-                side: const BorderSide(color: GroupDetailPage._borderColor),
+                foregroundColor: GroupDetailPage.textDarkColor,
+                side: const BorderSide(color: GroupDetailPage.borderColor),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -290,7 +405,7 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       title,
       style: const TextStyle(
-        color: GroupDetailPage._textDarkColor,
+        color: GroupDetailPage.textDarkColor,
         fontSize: 16,
         fontWeight: FontWeight.w900,
       ),
@@ -306,7 +421,7 @@ class _BalanceList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+      scrollDirection: Axis.horizontal,
       child: Row(
         children: <Widget>[
           for (int index = 0; index < balances.length; index++) ...<Widget>[
@@ -336,7 +451,7 @@ class _BalanceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: GroupDetailPage._borderColor),
+        border: Border.all(color: GroupDetailPage.borderColor),
       ),
       child: Center(
         child: Column(
@@ -360,7 +475,7 @@ class _BalanceCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: GroupDetailPage._textDarkColor,
+                color: GroupDetailPage.textDarkColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
@@ -394,7 +509,7 @@ class _ExpenseHeader extends StatelessWidget {
         TextButton(
           onPressed: () {},
           style: TextButton.styleFrom(
-            foregroundColor: GroupDetailPage._primaryColor,
+            foregroundColor: GroupDetailPage.primaryColor,
             minimumSize: Size.zero,
             padding: EdgeInsets.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -453,7 +568,7 @@ class _ExpenseTile extends StatelessWidget {
       decoration: BoxDecoration(
         border: showDivider
             ? const Border(
-                bottom: BorderSide(color: GroupDetailPage._borderColor),
+                bottom: BorderSide(color: GroupDetailPage.borderColor),
               )
             : null,
       ),
@@ -463,7 +578,7 @@ class _ExpenseTile extends StatelessWidget {
             width: 28,
             child: Icon(
               expense.icon,
-              color: GroupDetailPage._textDarkColor,
+              color: GroupDetailPage.textDarkColor,
               size: 19,
             ),
           ),
@@ -477,7 +592,7 @@ class _ExpenseTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: GroupDetailPage._textDarkColor,
+                    color: GroupDetailPage.textDarkColor,
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
@@ -503,7 +618,7 @@ class _ExpenseTile extends StatelessWidget {
               Text(
                 expense.amount,
                 style: const TextStyle(
-                  color: GroupDetailPage._textDarkColor,
+                  color: GroupDetailPage.textDarkColor,
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
                 ),
@@ -526,6 +641,69 @@ class _ExpenseTile extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailLoadingState extends StatelessWidget {
+  const _DetailLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 72),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _DetailEmptyState extends StatelessWidget {
+  const _DetailEmptyState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Color(0xFF6B7280),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailErrorState extends StatelessWidget {
+  const _DetailErrorState({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 72),
+      child: Column(
+        children: <Widget>[
+          Text(
+            'Gagal memuat detail grup: $error',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(onPressed: onRetry, child: const Text('Coba lagi')),
         ],
       ),
     );

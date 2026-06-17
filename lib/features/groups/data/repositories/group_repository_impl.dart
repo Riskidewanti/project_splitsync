@@ -1,5 +1,6 @@
 import '../../domain/repositories/group_repository.dart';
 import '../datasources/group_remote_data_source.dart';
+import '../models/group_expense_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
 
@@ -15,6 +16,11 @@ class GroupRepositoryImpl implements GroupRepository {
   }
 
   @override
+  Future<List<GroupModel>> getGroups() {
+    return _remoteDataSource.getGroups();
+  }
+
+  @override
   Future<List<GroupModel>> getUserGroups(String userId) {
     return _remoteDataSource.getUserGroups(userId);
   }
@@ -27,6 +33,11 @@ class GroupRepositoryImpl implements GroupRepository {
   @override
   Future<List<GroupMemberModel>> getGroupMembers(String groupId) {
     return _remoteDataSource.getGroupMembers(groupId);
+  }
+
+  @override
+  Future<List<GroupExpenseModel>> getGroupExpenses(String groupId) {
+    return _remoteDataSource.getGroupExpenses(groupId);
   }
 
   @override
@@ -47,5 +58,10 @@ class GroupRepositoryImpl implements GroupRepository {
   @override
   Future<void> removeMember({required String groupId, required String userId}) {
     return _remoteDataSource.removeMember(groupId: groupId, userId: userId);
+  }
+
+  @override
+  Future<void> deleteGroup(String groupId) {
+    return _remoteDataSource.deleteGroup(groupId);
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../data/datasources/group_remote_data_source.dart';
+import '../../data/repositories/group_repository_impl.dart';
 import '../widgets/add_category_bottom_sheet.dart';
 
 class CreateGroupPage extends StatefulWidget {
@@ -19,8 +21,12 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
   final TextEditingController _groupNameController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final GroupRepositoryImpl _groupRepository = GroupRepositoryImpl(
+    remoteDataSource: GroupRemoteDataSourceImpl(),
+  );
   late final List<_CategoryOption> _categories;
   int _selectedCategoryIndex = 1;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -59,26 +65,47 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     });
   }
 
-  static const List<MockMember> _members = <MockMember>[
-    MockMember(
-      name: 'Alex Morgan',
-      email: 'alex.m@splitsync.com',
-      initials: 'AM',
-      avatarColor: Color(0xFF233348),
-    ),
-    MockMember(
-      name: 'Sam Rodriguez',
-      email: 'sam.r22@gmail.com',
-      initials: 'SR',
-      avatarColor: Color(0xFFF1E4D4),
-    ),
-    MockMember(
-      name: 'Jordan Kelly',
-      email: 'jkelly.pro@outlook.com',
-      initials: 'JK',
-      avatarColor: Color(0xFFD8EEE4),
-    ),
-  ];
+  static const List<GroupMemberSuggestion> _members = <GroupMemberSuggestion>[];
+
+  Future<void> _createGroup() async {
+    if (_isSubmitting) {
+      return;
+    }
+
+    final String groupName = _groupNameController.text.trim();
+    if (groupName.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Nama grup wajib diisi.')),
+        );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await _groupRepository.createGroup(name: groupName);
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Gagal membuat grup: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -202,7 +229,11 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                 ],
               ),
             ),
-            const _CreateGroupButton(primaryRed: _primaryRed),
+            _CreateGroupButton(
+              primaryRed: _primaryRed,
+              isLoading: _isSubmitting,
+              onPressed: _createGroup,
+            ),
           ],
         ),
       ),
@@ -222,8 +253,8 @@ class _CategoryOption {
   final bool isCustomAction;
 }
 
-class MockMember {
-  const MockMember({
+class GroupMemberSuggestion {
+  const GroupMemberSuggestion({
     required this.name,
     required this.email,
     required this.initials,
@@ -515,7 +546,7 @@ class MemberSuggestionTile extends StatelessWidget {
     required this.showDivider,
   });
 
-  final MockMember member;
+  final GroupMemberSuggestion member;
   final Color primaryRed;
   final bool showDivider;
 
@@ -588,7 +619,7 @@ class MemberSuggestionTile extends StatelessWidget {
 class _MockAvatar extends StatelessWidget {
   const _MockAvatar({required this.member});
 
-  final MockMember member;
+  final GroupMemberSuggestion member;
 
   @override
   Widget build(BuildContext context) {
@@ -617,9 +648,15 @@ class _MockAvatar extends StatelessWidget {
 }
 
 class _CreateGroupButton extends StatelessWidget {
-  const _CreateGroupButton({required this.primaryRed});
+  const _CreateGroupButton({
+    required this.primaryRed,
+    required this.isLoading,
+    required this.onPressed,
+  });
 
   final Color primaryRed;
+  final bool isLoading;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -630,7 +667,7 @@ class _CreateGroupButton extends StatelessWidget {
         width: double.infinity,
         height: 46,
         child: FilledButton.icon(
-          onPressed: () {},
+          onPressed: isLoading ? null : onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: primaryRed,
             foregroundColor: Colors.white,
@@ -638,10 +675,19 @@ class _CreateGroupButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(24),
             ),
           ),
-          icon: const Icon(Icons.group_add_outlined, size: 18),
-          label: const Text(
-            'Buat Grup',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          icon: isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.group_add_outlined, size: 18),
+          label: Text(
+            isLoading ? 'Membuat...' : 'Buat Grup',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
         ),
       ),

@@ -1,16 +1,21 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/group_expense_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
 
 abstract class GroupRemoteDataSource {
   Future<GroupModel> createGroup({required String name, String? description});
 
+  Future<List<GroupModel>> getGroups();
+
   Future<List<GroupModel>> getUserGroups(String userId);
 
   Future<GroupModel?> getGroupById(String groupId);
 
   Future<List<GroupMemberModel>> getGroupMembers(String groupId);
+
+  Future<List<GroupExpenseModel>> getGroupExpenses(String groupId);
 
   Future<GroupMemberModel> addMember({
     required String groupId,
@@ -20,6 +25,8 @@ abstract class GroupRemoteDataSource {
   });
 
   Future<void> removeMember({required String groupId, required String userId});
+
+  Future<void> deleteGroup(String groupId);
 }
 
 class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
@@ -60,6 +67,11 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   }
 
   @override
+  Future<List<GroupModel>> getGroups() {
+    return getUserGroups(_requireCurrentUserId());
+  }
+
+  @override
   Future<List<GroupModel>> getUserGroups(String userId) async {
     final List<dynamic> membershipRows = await _client
         .from('group_members')
@@ -80,6 +92,7 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         .from('groups')
         .select()
         .inFilter('id', groupIds)
+        .filter('archived_at', 'is', null)
         .order('created_at', ascending: false);
 
     return groupRows
@@ -104,27 +117,53 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   }
 
   @override
-Future<List<GroupMemberModel>> getGroupMembers(String groupId) async {
-  final List<dynamic> rows = await _client
-      .from('group_members')
-      .select('''
-        *,
-        profiles (
-          display_name,
-          email,
-          avatar_url
-        )
-      ''')
-      .eq('group_id', groupId)
-      .eq('status', GroupMemberStatus.active.value)
-      .order('joined_at')
-      .order('created_at');
+  Future<List<GroupMemberModel>> getGroupMembers(String groupId) async {
+    final List<dynamic> rows = await _client
+        .from('group_members')
+        .select('''
+          *,
+          profiles (
+            display_name,
+            email,
+            avatar_url
+          )
+        ''')
+        .eq('group_id', groupId)
+        .eq('status', GroupMemberStatus.active.value)
+        .order('joined_at')
+        .order('created_at');
 
-  return rows
-      .map((dynamic row) => row as Map<String, dynamic>)
-      .map(GroupMemberModel.fromJson)
-      .toList();
-}
+    return rows
+        .map((dynamic row) => row as Map<String, dynamic>)
+        .map(GroupMemberModel.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<List<GroupExpenseModel>> getGroupExpenses(String groupId) async {
+    final List<dynamic> rows = await _client
+        .from('expenses')
+        .select('''
+          id,
+          group_id,
+          payer_id,
+          title,
+          merchant_name,
+          expense_date,
+          total_amount,
+          currency,
+          status,
+          created_at
+        ''')
+        .eq('group_id', groupId)
+        .order('expense_date', ascending: false)
+        .order('created_at', ascending: false);
+
+    return rows
+        .map((dynamic row) => row as Map<String, dynamic>)
+        .map(GroupExpenseModel.fromJson)
+        .toList();
+  }
 
   @override
   Future<GroupMemberModel> addMember({
@@ -162,6 +201,16 @@ Future<List<GroupMemberModel>> getGroupMembers(String groupId) async {
         })
         .eq('group_id', groupId)
         .eq('user_id', userId);
+  }
+
+  @override
+  Future<void> deleteGroup(String groupId) async {
+    await _client
+        .from('groups')
+        .update(<String, dynamic>{
+          'archived_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', groupId);
   }
 
   String _requireCurrentUserId() {
