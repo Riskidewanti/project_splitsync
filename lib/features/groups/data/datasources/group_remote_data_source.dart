@@ -104,20 +104,27 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   }
 
   @override
-  Future<List<GroupMemberModel>> getGroupMembers(String groupId) async {
-    final List<dynamic> rows = await _client
-        .from('group_members')
-        .select()
-        .eq('group_id', groupId)
-        .eq('status', GroupMemberStatus.active.value)
-        .order('joined_at')
-        .order('created_at');
+Future<List<GroupMemberModel>> getGroupMembers(String groupId) async {
+  final List<dynamic> rows = await _client
+      .from('group_members')
+      .select('''
+        *,
+        profiles (
+          display_name,
+          email,
+          avatar_url
+        )
+      ''')
+      .eq('group_id', groupId)
+      .eq('status', GroupMemberStatus.active.value)
+      .order('joined_at')
+      .order('created_at');
 
-    return rows
-        .map((dynamic row) => row as Map<String, dynamic>)
-        .map(GroupMemberModel.fromJson)
-        .toList();
-  }
+  return rows
+      .map((dynamic row) => row as Map<String, dynamic>)
+      .map(GroupMemberModel.fromJson)
+      .toList();
+}
 
   @override
   Future<GroupMemberModel> addMember({
