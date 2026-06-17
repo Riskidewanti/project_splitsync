@@ -1,6 +1,6 @@
 # SplitSync
 
-## Anggota 1 - Authentication & Profile (Salsa)
+## Anggota 1 - Authentication, Profile & Friend System (Salsa)
 
 ### Authentication
 - Login
@@ -8,66 +8,47 @@
 - Logout
 - Session Management
 - Forgot Password
-- Integrasi Supabase Auth
 
 ### Profile
 - Profile Page
 - Edit Profile
 - User Settings
-- Menampilkan Data Pengguna
+
+### Friend System
+- Add Friend
+- Friend List
+- Friend Request
+- Remove Friend
 
 ---
 
-## Anggota 2 - Database, Backend & OCR (Kiki)
+## Anggota 2 - Backend, Database, OCR & Group Management (Kiki)
 
-### Database Architecture
+### Backend & Database
 - Database Design
-- ERD & Relasi Tabel
-- Supabase Setup
-- Database Migration
-- Row Level Security (RLS)
-- Database Indexing
-- Flutter ↔ Supabase Integration
+- Supabase Configuration
+- Database Security (RLS)
+- Backend Integration
 
 ### OCR Receipt Scanner
 - Upload Receipt Image
 - OCR Processing
 - Extract Expense Items
-- Edit OCR Result
 - Save OCR Result
-
-### Database Tables
-- profiles
-- friend_requests
-- groups
-- group_members
-- expenses
-- expense_items
-- expense_item_participants
-- expense_splits
-- expense_debts
-- settlements
-- settlement_expense_debts
-- ocr_jobs
-- notifications
-
----
-
-## Anggota 3 - Group, Expense & Settlement (Wedya)
 
 ### Group Management
 - Create Group
-- Join Group
-- Group List
 - Group Detail
 - Add Member
 - Remove Member
-- Member List
+
+---
+
+## Anggota 3 - Expense, Split Bill & Settlement (Wedya)
 
 ### Expense Management
 - Add Expense
 - Edit Expense
-- Delete Expense
 - Expense Detail
 - Expense History
 
@@ -75,22 +56,8 @@
 - Equal Split
 - Custom Split
 - Percentage Split
-- Debt Calculation
 
 ### Settlement
+- Debt Calculation
 - Settlement Processing
 - Payment Status
-- Settlement History
-- Debt Tracking
-
----
-
-## Integration & Testing
-
-### Team Collaboration
-- Frontend Integration
-- Backend Integration
-- Testing
-- Bug Fixing
-- Documentation
-- Presentation
