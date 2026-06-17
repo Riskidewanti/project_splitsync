@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 
 import 'ocr_capture_result_page.dart';
+import 'dart:math' as math;
 
 enum _CameraStatus { loading, ready, permissionDenied, unavailable, error }
 
@@ -264,10 +265,15 @@ class _ScanPageState extends State<ScanPage> with WidgetsBindingObserver {
             final double horizontalPadding = size.width * 0.08;
             final double frameWidth = (size.width - horizontalPadding * 2)
                 .clamp(260.0, 420.0);
-            final double frameHeight = (frameWidth * 1.26).clamp(
+            final double maxHeight = math.max(
               330.0,
               size.height * 0.58,
-            );
+        );
+
+            final double frameHeight = (frameWidth * 1.26).clamp(
+              330.0,
+                 maxHeight,
+    );
 
             return Stack(
               children: <Widget>[
