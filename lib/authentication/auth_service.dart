@@ -1,6 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/supabase/supabase_config.dart';
+
 class SessionProfile {
   const SessionProfile({
     required this.id,
@@ -24,22 +26,19 @@ class SessionProfile {
 class AuthService {
   AuthService._();
 
-  static const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   static const _sessionId = 'splitsync_session_id';
   static const _sessionEmail = 'splitsync_session_email';
   static const _sessionUsername = 'splitsync_session_username';
 
-  static bool get isConfigured =>
-      _supabaseUrl.isNotEmpty && _supabaseAnonKey.isNotEmpty;
+  static bool get isConfigured => SupabaseConfig.isConfigured;
 
   static SupabaseClient get _client => Supabase.instance.client;
 
   static Future<void> initialize() async {
     if (!isConfigured) return;
     await Supabase.initialize(
-      url: _supabaseUrl,
-      publishableKey: _supabaseAnonKey,
+      url: SupabaseConfig.url,
+      publishableKey: SupabaseConfig.publishableKey,
     );
   }
 
@@ -121,7 +120,7 @@ class AuthService {
   static void _guardConfiguration() {
     if (!isConfigured) {
       throw const AuthException(
-        'Supabase belum dikonfigurasi. Tambahkan SUPABASE_URL dan SUPABASE_ANON_KEY.',
+        'Supabase belum dikonfigurasi. Tambahkan SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY.',
       );
     }
   }
