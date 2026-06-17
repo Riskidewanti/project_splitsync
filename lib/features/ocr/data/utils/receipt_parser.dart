@@ -22,20 +22,23 @@ class ReceiptParser {
       return '';
     }
 
-    final Iterable<String> headerLines = lines.take(10);
-    for (final String line in headerLines) {
-      if (_isLikelyMerchantLine(line)) {
-        return line;
+    _MerchantCandidate? bestCandidate;
+    for (int index = 0; index < lines.length; index += 1) {
+      final String line = lines[index];
+      if (!_isLikelyMerchantLine(line)) {
+        continue;
+      }
+
+      final _MerchantCandidate candidate = _MerchantCandidate(
+        line,
+        _merchantCandidateScore(line, index),
+      );
+      if (bestCandidate == null || candidate.score > bestCandidate.score) {
+        bestCandidate = candidate;
       }
     }
 
-    for (final String line in lines) {
-      if (_isLikelyMerchantLine(line)) {
-        return line;
-      }
-    }
-
-    return '';
+    return bestCandidate?.name ?? '';
   }
 
   int _extractTotal(List<String> lines) {
@@ -47,7 +50,8 @@ class ReceiptParser {
     ];
 
     for (final RegExp pattern in totalPatterns) {
-      for (final String line in lines.reversed) {
+      for (int index = lines.length - 1; index >= 0; index -= 1) {
+        final String line = lines[index];
         if (!pattern.hasMatch(line)) {
           continue;
         }
@@ -60,10 +64,33 @@ class ReceiptParser {
         if (amount != null) {
           return amount;
         }
+
+        final int? followingAmount = _amountAfterTotalLabel(lines, index);
+        if (followingAmount != null) {
+          return followingAmount;
+        }
       }
     }
 
     return 0;
+  }
+
+  int? _amountAfterTotalLabel(List<String> lines, int totalLineIndex) {
+    for (int index = totalLineIndex + 1;
+        index < lines.length && index <= totalLineIndex + 2;
+        index += 1) {
+      final String line = lines[index];
+      if (_isTotalLikeLine(line) || _isPaymentOrChangeLine(line)) {
+        break;
+      }
+
+      final int? amount = _lastAmountInLine(line);
+      if (amount != null) {
+        return amount;
+      }
+    }
+
+    return null;
   }
 
   List<Map<String, dynamic>> _extractItems(List<String> lines) {
@@ -118,7 +145,9 @@ class ReceiptParser {
       return false;
     }
 
-    if (_containsAmount(line) || _isReceiptMetadataLine(line)) {
+    if (_containsAmount(line) ||
+        _isReceiptMetadataLine(line) ||
+        _isMerchantMetadataLabel(line)) {
       return false;
     }
 
@@ -137,6 +166,67 @@ class ReceiptParser {
     final int digitCount = RegExp(r'\d').allMatches(line).length;
 
     return letterCount >= 3 && letterCount >= digitCount;
+  }
+
+  int _merchantCandidateScore(String line, int index) {
+    final String normalized = line.toLowerCase();
+    int score = 0;
+
+    if (index < 10) {
+      score += 20 - index;
+    }
+
+    if (_isKnownStoreName(normalized)) {
+      score += 80;
+    }
+
+    if (RegExp(r"^[A-Z0-9 &.'-]+$").hasMatch(line)) {
+      score += 12;
+    }
+
+    if (normalized.contains('coffee') ||
+        normalized.contains('store') ||
+        normalized.contains('mart') ||
+        normalized.contains('market')) {
+      score += 16;
+    }
+
+    if (line.contains(':')) {
+      score -= 25;
+    }
+
+    score -= RegExp(r'\d').allMatches(line).length * 2;
+
+    return score;
+  }
+
+  bool _isKnownStoreName(String normalized) {
+    return normalized.contains('tomoro coffee') ||
+        normalized.contains('starbucks') ||
+        normalized.contains('indomaret');
+  }
+
+  bool _isMerchantMetadataLabel(String line) {
+    final String normalized = line
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    return normalized == 'channel' ||
+        normalized.startsWith('channel ') ||
+        normalized == 'cashier' ||
+        normalized.startsWith('cashier ') ||
+        normalized == 'order' ||
+        normalized.startsWith('order ') ||
+        normalized == 'date' ||
+        normalized.startsWith('date ') ||
+        normalized == 'payment' ||
+        normalized.startsWith('payment ') ||
+        normalized == 'receipt' ||
+        normalized.startsWith('receipt ') ||
+        normalized == 'invoice' ||
+        normalized.startsWith('invoice ');
   }
 
   bool _shouldIgnoreForItems(String line) {
@@ -403,4 +493,11 @@ class ReceiptParser {
     r'\s*(?:Rp\s*)?\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{2})?\s*$|\s*(?:Rp\s*)?\d{4,9}\s*$',
     caseSensitive: false,
   );
+}
+
+class _MerchantCandidate {
+  const _MerchantCandidate(this.name, this.score);
+
+  final String name;
+  final int score;
 }
