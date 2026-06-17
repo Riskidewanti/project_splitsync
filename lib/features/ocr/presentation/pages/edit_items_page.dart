@@ -25,12 +25,16 @@ class ReceiptItem {
 class EditItemsPage extends StatefulWidget {
   const EditItemsPage({
     super.key,
+    required this.merchantName,
+    required this.expenseDate,
     required this.items,
     required this.subtotal,
     required this.tax,
     required this.serviceFee,
   });
 
+  final String merchantName;
+  final DateTime? expenseDate;
   final List<ReceiptItem> items;
   final double subtotal;
   final double tax;
@@ -262,6 +266,12 @@ class _EditItemsPageState extends State<EditItemsPage> {
                           MaterialPageRoute<void>(
                             builder: (BuildContext context) {
                               return SplitCalculationPage(
+                                merchantName: widget.merchantName,
+                                expenseDate: widget.expenseDate,
+                                items: List<ReceiptItem>.unmodifiable(_items),
+                                subtotal: subtotal,
+                                tax: tax,
+                                serviceFee: serviceFee,
                                 totalAmount: total,
                                 members: const <SplitMember>[
                                   SplitMember(

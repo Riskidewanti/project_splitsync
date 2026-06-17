@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../ocr/presentation/pages/edit_items_page.dart';
 import 'confirm_expense_page.dart';
 
 class SplitMember {
@@ -17,10 +18,22 @@ class SplitMember {
 class SplitCalculationPage extends StatefulWidget {
   const SplitCalculationPage({
     super.key,
+    required this.merchantName,
+    required this.expenseDate,
+    required this.items,
+    required this.subtotal,
+    required this.tax,
+    required this.serviceFee,
     required this.totalAmount,
     required this.members,
   });
 
+  final String merchantName;
+  final DateTime? expenseDate;
+  final List<ReceiptItem> items;
+  final double subtotal;
+  final double tax;
+  final double serviceFee;
   final double totalAmount;
   final List<SplitMember> members;
 
@@ -150,6 +163,44 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
     return null;
   }
 
+  String get _selectedSplitMethod {
+    return switch (_selectedSegment) {
+      1 => 'percentage',
+      2 => 'custom',
+      _ => 'equal',
+    };
+  }
+
+  double get _currentUserSplitAmount {
+    if (_splitAmounts.isEmpty) {
+      return widget.totalAmount;
+    }
+
+    final int currentUserIndex = widget.members.indexWhere(
+      (SplitMember member) => member.name.toLowerCase() == 'you',
+    );
+    final int index = currentUserIndex == -1 ? 0 : currentUserIndex;
+
+    return _splitAmounts[index];
+  }
+
+  double? get _currentUserPercentage {
+    if (_selectedSegment == 1 && _percentageControllers.isNotEmpty) {
+      final int currentUserIndex = widget.members.indexWhere(
+        (SplitMember member) => member.name.toLowerCase() == 'you',
+      );
+      final int index = currentUserIndex == -1 ? 0 : currentUserIndex;
+
+      return _parseNumber(_percentageControllers[index].text);
+    }
+
+    if (_selectedSegment == 0 && widget.members.isNotEmpty) {
+      return 100 / widget.members.length;
+    }
+
+    return null;
+  }
+
   void _submit() {
     final String? validationMessage = _validationMessage;
     if (validationMessage != null) {
@@ -163,10 +214,19 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
       context,
       MaterialPageRoute<void>(
         builder: (BuildContext context) {
-          return const ConfirmExpensePage(
-            merchantName: 'Whole Foods Market',
-            totalAmount: 142.50,
-            itemCount: 4,
+          return ConfirmExpensePage(
+            merchantName: widget.merchantName,
+            expenseDate: widget.expenseDate,
+            items: widget.items,
+            subtotal: widget.subtotal,
+            tax: widget.tax,
+            serviceFee: widget.serviceFee,
+            totalAmount: widget.totalAmount,
+            itemCount: widget.items.length,
+            participantCount: widget.members.length,
+            splitMethod: _selectedSplitMethod,
+            currentUserSplitAmount: _currentUserSplitAmount,
+            currentUserPercentage: _currentUserPercentage,
             note: null,
             tags: <String>['dinner', 'supplies'],
           );

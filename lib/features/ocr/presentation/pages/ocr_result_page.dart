@@ -80,7 +80,11 @@ class OCRResultPage extends StatelessWidget {
                         category: category,
                       ),
                       const Spacer(),
-                      _BottomActions(items: items),
+                      _BottomActions(
+                        merchant: merchant,
+                        date: date,
+                        items: items,
+                      ),
                     ],
                   ),
                 ),
@@ -334,8 +338,14 @@ class _CategoryChip extends StatelessWidget {
 }
 
 class _BottomActions extends StatelessWidget {
-  const _BottomActions({required this.items});
+  const _BottomActions({
+    required this.merchant,
+    required this.date,
+    required this.items,
+  });
 
+  final String merchant;
+  final DateTime? date;
   final List<ReceiptItem> items;
 
   @override
@@ -380,6 +390,8 @@ class _BottomActions extends StatelessWidget {
                   MaterialPageRoute<void>(
                     builder: (BuildContext context) {
                       return EditItemsPage(
+                        merchantName: merchant,
+                        expenseDate: date,
                         items: items,
                         subtotal: _itemsSubtotal(items),
                         tax: 0,

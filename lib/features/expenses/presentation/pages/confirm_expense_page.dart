@@ -1,22 +1,115 @@
 import 'package:flutter/material.dart';
 
+import '../../../ocr/presentation/pages/edit_items_page.dart';
+import '../../data/datasources/expense_remote_data_source.dart';
 import 'success_page.dart';
 
-class ConfirmExpensePage extends StatelessWidget {
+class ConfirmExpensePage extends StatefulWidget {
   const ConfirmExpensePage({
     super.key,
     required this.merchantName,
+    required this.expenseDate,
+    required this.items,
+    required this.subtotal,
+    required this.tax,
+    required this.serviceFee,
     required this.totalAmount,
     required this.itemCount,
+    required this.participantCount,
+    required this.splitMethod,
+    required this.currentUserSplitAmount,
+    required this.currentUserPercentage,
     this.note,
     this.tags = const <String>[],
   });
 
   final String merchantName;
+  final DateTime? expenseDate;
+  final List<ReceiptItem> items;
+  final double subtotal;
+  final double tax;
+  final double serviceFee;
   final double totalAmount;
   final int itemCount;
+  final int participantCount;
+  final String splitMethod;
+  final double currentUserSplitAmount;
+  final double? currentUserPercentage;
   final String? note;
   final List<String> tags;
+
+  @override
+  State<ConfirmExpensePage> createState() => _ConfirmExpensePageState();
+}
+
+class _ConfirmExpensePageState extends State<ConfirmExpensePage> {
+  final ExpenseRemoteDataSource _expenseRemoteDataSource =
+      ExpenseRemoteDataSource();
+  bool _isSaving = false;
+
+  Future<void> _confirmExpense() async {
+    if (_isSaving) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await _expenseRemoteDataSource.createExpense(
+        merchantName: widget.merchantName,
+        expenseDate: widget.expenseDate ?? DateTime.now(),
+        items: widget.items
+            .map(
+              (ReceiptItem item) => ExpenseItemDraft(
+                name: item.name,
+                quantity: item.quantity,
+                unitPrice: item.price,
+              ),
+            )
+            .toList(),
+        subtotal: widget.subtotal,
+        taxAmount: widget.tax,
+        serviceChargeAmount: widget.serviceFee,
+        discountAmount: 0,
+        totalAmount: widget.totalAmount,
+        splitMethod: widget.splitMethod,
+        currentUserSplitAmount: widget.currentUserSplitAmount,
+        currentUserPercentage: widget.currentUserPercentage,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) {
+            return SuccessPage(
+              totalAmount: widget.totalAmount,
+              participantCount: widget.participantCount,
+            );
+          },
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Gagal menyimpan: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,18 +165,18 @@ class ConfirmExpensePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 20),
                       _ExpenseCard(
-                        merchantName: merchantName,
-                        totalAmount: totalAmount,
-                        itemCount: itemCount,
+                        merchantName: widget.merchantName,
+                        totalAmount: widget.totalAmount,
+                        itemCount: widget.itemCount,
                       ),
                       const SizedBox(height: 18),
-                      _NoteField(initialText: note),
+                      _NoteField(initialText: widget.note),
                       const SizedBox(height: 14),
-                      _TagsSection(tags: tags),
+                      _TagsSection(tags: widget.tags),
                     ],
                   ),
                 ),
-                const _BottomButton(),
+                _BottomButton(isSaving: _isSaving, onPressed: _confirmExpense),
               ],
             ),
           ),
@@ -370,7 +463,10 @@ class _TagChip extends StatelessWidget {
 }
 
 class _BottomButton extends StatelessWidget {
-  const _BottomButton();
+  const _BottomButton({required this.isSaving, required this.onPressed});
+
+  final bool isSaving;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -384,27 +480,25 @@ class _BottomButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFC70F1B),
             foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFFC70F1B),
+            disabledForegroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (BuildContext context) {
-                  return const SuccessPage(
-                    totalAmount: 142.50,
-                    participantCount: 3,
-                  );
-                },
-              ),
-            );
-          },
-          child: const Text(
-            'Konfirmasi',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-          ),
+          onPressed: isSaving ? null : onPressed,
+          child: isSaving
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.4,
+                  ),
+                )
+              : const Text(
+                  'Konfirmasi',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
         ),
       ),
     );
