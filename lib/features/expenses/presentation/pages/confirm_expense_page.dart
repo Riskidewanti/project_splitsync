@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../ocr/presentation/pages/edit_items_page.dart';
 import '../../data/datasources/expense_remote_data_source.dart';
 import 'success_page.dart';
@@ -267,7 +268,7 @@ class _ExpenseCard extends StatelessWidget {
             child: Column(
               children: <Widget>[
                 Text(
-                  _formatCurrency(totalAmount),
+                  formatRupiah(totalAmount),
                   style: const TextStyle(
                     color: Color(0xFF111827),
                     fontSize: 40,
@@ -503,21 +504,4 @@ class _BottomButton extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < whole.length; i++) {
-    final int reverseIndex = whole.length - i;
-    buffer.write(whole[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
-    }
-  }
-
-  return '\$${buffer.toString()}.${parts.last}';
 }

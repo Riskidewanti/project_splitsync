@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
+
 enum GroupCardStatusStyle { red, gray, blue }
 
 class GroupCard extends StatelessWidget {
@@ -17,7 +19,7 @@ class GroupCard extends StatelessWidget {
 
   final String title;
   final String subtitle;
-  final String amount;
+  final num amount;
   final String statusLabel;
   final GroupCardStatusStyle statusStyle;
   final IconData icon;
@@ -137,7 +139,7 @@ class _AmountStatus extends StatelessWidget {
     required this.statusStyle,
   });
 
-  final String amount;
+  final num amount;
   final String statusLabel;
   final GroupCardStatusStyle statusStyle;
 
@@ -159,7 +161,7 @@ class _AmountStatus extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: <Widget>[
         Text(
-          amount,
+          formatRupiah(amount),
           style: const TextStyle(
             color: Color(0xFF111827),
             fontSize: 14,

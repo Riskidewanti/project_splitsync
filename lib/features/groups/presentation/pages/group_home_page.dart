@@ -9,7 +9,7 @@ class GroupHomePage extends StatelessWidget {
     _MockGroup(
       title: 'Euro Trip 2024',
       subtitle: 'Terakhir dilihat 2 jam',
-      amount: r'$45.00',
+      amount: 45000,
       statusLabel: 'Anda menerima',
       statusStyle: GroupCardStatusStyle.red,
       icon: Icons.flight_takeoff,
@@ -19,7 +19,7 @@ class GroupHomePage extends StatelessWidget {
     _MockGroup(
       title: 'Apartment 4B',
       subtitle: 'Terakhir dilihat kemarin',
-      amount: r'$0.00',
+      amount: 0,
       statusLabel: 'Transaksi Selesai',
       statusStyle: GroupCardStatusStyle.gray,
       icon: Icons.apartment,
@@ -28,7 +28,7 @@ class GroupHomePage extends StatelessWidget {
     _MockGroup(
       title: 'Friday Dinner',
       subtitle: 'Terakhir dilihat 3 hari',
-      amount: r'$20.00',
+      amount: 20000,
       statusLabel: 'Anda Menerima',
       statusStyle: GroupCardStatusStyle.blue,
       icon: Icons.restaurant,
@@ -91,7 +91,7 @@ class _MockGroup {
 
   final String title;
   final String subtitle;
-  final String amount;
+  final num amount;
   final String statusLabel;
   final GroupCardStatusStyle statusStyle;
   final IconData icon;

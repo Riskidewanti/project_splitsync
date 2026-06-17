@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../ocr/presentation/pages/edit_items_page.dart';
 import 'confirm_expense_page.dart';
 
@@ -162,7 +163,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
       );
 
       if ((assignedTotal - widget.totalAmount).abs() > 0.01) {
-        return 'Total kustom harus ${_formatCurrency(widget.totalAmount)}.';
+        return 'Total kustom harus ${formatRupiah(widget.totalAmount)}.';
       }
     }
 
@@ -282,7 +283,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _formatCurrency(widget.totalAmount),
+                    formatRupiah(widget.totalAmount),
                     style: const TextStyle(
                       color: Color(0xFF1F2933),
                       fontSize: 38,
@@ -592,7 +593,7 @@ class _MemberRow extends StatelessWidget {
             const SizedBox(width: 16),
           ] else
             Text(
-              _formatCurrency(amount),
+              formatRupiah(amount),
               style: TextStyle(
                 color: member.userId == currentUserId
                     ? const Color(0xFFD71920)
@@ -694,7 +695,7 @@ class _AmountBox extends StatelessWidget {
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textAlign: TextAlign.center,
         decoration: const InputDecoration(
-          prefixText: r'$ ',
+          prefixText: 'Rp ',
           prefixStyle: TextStyle(
             color: Color(0xFF8A92A3),
             fontSize: 12,
@@ -714,23 +715,6 @@ class _AmountBox extends StatelessWidget {
   }
 }
 
-String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < whole.length; i++) {
-    final int reverseIndex = whole.length - i;
-    buffer.write(whole[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
-    }
-  }
-
-  return '\$${buffer.toString()}.${parts.last}';
-}
-
 String _formatInputNumber(double value) {
   final String fixed = value.toStringAsFixed(2);
   if (fixed.endsWith('.00')) {
@@ -743,7 +727,7 @@ String _formatInputNumber(double value) {
 double _parseNumber(String value) {
   final String normalized = value
       .replaceAll(',', '')
-      .replaceAll(r'$', '')
+      .replaceAll('Rp', '')
       .trim();
   return double.tryParse(normalized) ?? 0;
 }

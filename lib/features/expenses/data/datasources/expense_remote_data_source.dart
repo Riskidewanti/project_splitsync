@@ -44,7 +44,7 @@ class ExpenseRemoteDataSource {
               ? null
               : merchantName.trim(),
           'expense_date': expenseDate.toUtc().toIso8601String(),
-          'currency': 'USD',
+          'currency': 'IDR',
           'subtotal': subtotal,
           'tax_amount': taxAmount,
           'service_charge_amount': serviceChargeAmount,

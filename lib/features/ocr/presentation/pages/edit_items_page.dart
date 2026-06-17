@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../expenses/presentation/pages/split_calculation_page.dart';
 import '../../../groups/data/datasources/group_remote_data_source.dart';
 import '../../../groups/data/models/group_member_model.dart';
@@ -570,7 +571,7 @@ class _ItemRow extends StatelessWidget {
             ),
           ),
           Text(
-            _formatCurrency(item.price),
+            formatRupiah(item.price),
             style: const TextStyle(
               color: Color(0xFF111827),
               fontSize: 13,
@@ -660,7 +661,7 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
               Text(
-                _formatCurrency(total),
+                formatRupiah(total),
                 textAlign: TextAlign.right,
                 style: const TextStyle(
                   color: Color(0xFF111827),
@@ -703,7 +704,7 @@ class _SummaryRow extends StatelessWidget {
           ),
         ),
         Text(
-          _formatCurrency(amount),
+          formatRupiah(amount),
           style: TextStyle(
             color: amountColor,
             fontSize: 13,
@@ -743,23 +744,6 @@ class _CardShell extends StatelessWidget {
       child: child,
     );
   }
-}
-
-String _formatCurrency(double value) {
-  final int amount = value.round();
-  final String digits = amount.abs().toString();
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < digits.length; i++) {
-    final int reverseIndex = digits.length - i;
-    buffer.write(digits[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write('.');
-    }
-  }
-
-  final String prefix = amount < 0 ? '-Rp ' : 'Rp ';
-  return '$prefix${buffer.toString()}';
 }
 
 String _formatInputAmount(double value) {

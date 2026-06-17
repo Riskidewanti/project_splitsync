@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
 import 'edit_items_page.dart';
 
 class OCRResultPage extends StatelessWidget {
@@ -122,7 +123,7 @@ class _TotalCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _formatCurrency(total),
+                  formatRupiah(total),
                   style: const TextStyle(
                     color: Color(0xFF1F2933),
                     fontSize: 36,
@@ -449,23 +450,6 @@ double _itemsSubtotal(List<ReceiptItem> items) {
   return items.fold<double>(0, (double subtotal, ReceiptItem item) {
     return subtotal + item.price;
   });
-}
-
-String _formatCurrency(double value) {
-  final int amount = value.round();
-  final String digits = amount.abs().toString();
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < digits.length; i++) {
-    final int reverseIndex = digits.length - i;
-    buffer.write(digits[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write('.');
-    }
-  }
-
-  final String prefix = amount < 0 ? '-Rp ' : 'Rp ';
-  return '$prefix${buffer.toString()}';
 }
 
 String _formatDate(DateTime? date) {
