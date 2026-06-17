@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'create_group_page.dart';
 import '../widgets/group_card.dart';
 
 class GroupHomePage extends StatelessWidget {
@@ -51,7 +52,11 @@ class GroupHomePage extends StatelessWidget {
                 children: <Widget>[
                   const _GroupSectionHeader(),
                   const SizedBox(height: 20),
-                  for (int index = 0; index < _groups.length; index++) ...<Widget>[
+                  for (
+                    int index = 0;
+                    index < _groups.length;
+                    index++
+                  ) ...<Widget>[
                     GroupCard(
                       title: _groups[index].title,
                       subtitle: _groups[index].subtitle,
@@ -181,7 +186,13 @@ class _GroupSectionHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
               ),
             ),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const CreateGroupPage(),
+                ),
+              );
+            },
             child: const Text(
               '+ Buat Grup',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
@@ -289,8 +300,14 @@ class _CenterCreateButton extends StatelessWidget {
           elevation: 4,
           backgroundColor: const Color(0xFFC70F1B),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          onPressed: () {},
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const CreateGroupPage()),
+            );
+          },
           child: const Icon(Icons.add, size: 34),
         ),
       ),
