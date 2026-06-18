@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/models/group_member_model.dart';
@@ -6,6 +6,7 @@ import '../../data/models/group_model.dart';
 import '../../data/repositories/group_repository_impl.dart';
 import 'create_group_page.dart';
 import 'group_detail_page.dart';
+import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../widgets/group_card.dart';
 
 class GroupHomePage extends StatefulWidget {
@@ -114,6 +115,12 @@ class _GroupHomePageState extends State<GroupHomePage> {
     );
   }
 
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const NotificationsPage()),
+    );
+  }
+
   Future<void> _openCreateGroup() async {
     final Object? created = await Navigator.of(context).push(
       MaterialPageRoute<bool>(builder: (_) => const CreateGroupPage()),
@@ -158,7 +165,7 @@ class _GroupHomePageState extends State<GroupHomePage> {
         bottom: false,
         child: Column(
           children: <Widget>[
-            const _GroupHomeHeader(),
+            _GroupHomeHeader(onNotificationsPressed: _openNotifications),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refreshGroups,
@@ -246,7 +253,9 @@ class _GroupCardData {
 }
 
 class _GroupHomeHeader extends StatelessWidget {
-  const _GroupHomeHeader();
+  const _GroupHomeHeader({required this.onNotificationsPressed});
+
+  final VoidCallback onNotificationsPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +294,7 @@ class _GroupHomeHeader extends StatelessWidget {
               constraints: const BoxConstraints.tightFor(width: 34, height: 34),
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
-              onPressed: () {},
+              onPressed: onNotificationsPressed,
               icon: const Icon(
                 Icons.notifications_none,
                 color: Color(0xFF6B4D49),
@@ -511,3 +520,5 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
+
+
