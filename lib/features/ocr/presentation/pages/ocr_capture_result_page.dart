@@ -3,6 +3,7 @@ import 'dart:ui' show PathMetric, PathMetrics;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/services/gemini_receipt_service.dart';
 import '../../data/datasources/ocr_service.dart';
 import '../../data/utils/receipt_parser.dart';
 import 'edit_items_page.dart';
@@ -20,6 +21,9 @@ class OCRCaptureResultPage extends StatefulWidget {
 class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
   final OCRService _ocrService = const OCRService();
   final ReceiptParser _receiptParser = const ReceiptParser();
+  final GeminiReceiptService _geminiService = GeminiReceiptService(
+    apiKey: 'REPLACE_WITH_API_KEY',
+  );
   bool _isRunningOCR = false;
 
   Future<void> _handleFinish() async {
@@ -38,9 +42,13 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       print('===== OCR RAW TEXT =====');
       print(extractedText);
       print('========================');
-      final Map<String, dynamic> parsedResult = _receiptParser.parse(
-        extractedText,
-      );
+      late final Map<String, dynamic> parsedResult;
+      try {
+        parsedResult = await _geminiService.parseReceipt(extractedText);
+      } catch (error) {
+        print('Gemini receipt parsing failed: $error');
+        parsedResult = _receiptParser.parse(extractedText);
+      }
       print('===== OCR PARSED RESULT =====');
       print(parsedResult);
       print('=============================');
