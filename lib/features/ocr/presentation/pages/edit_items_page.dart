@@ -261,93 +261,26 @@ class _EditItemsPageState extends State<EditItemsPage> {
     });
   }
 
-  Future<ReceiptItem?> _showItemDialog({ReceiptItem? item}) {
-    final TextEditingController nameController = TextEditingController(
-      text: item?.name ?? '',
-    );
-    final TextEditingController priceController = TextEditingController(
-      text: item == null ? '' : _formatInputAmount(item.price),
-    );
-
-    return showDialog<ReceiptItem>(
+  Future<ReceiptItem?> _showItemDialog({ReceiptItem? item}) async {
+    final _ItemDialogResult? result = await showDialog<_ItemDialogResult>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(item == null ? 'Tambah Barang' : 'Edit Barang'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Nama barang',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: priceController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Harga',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            if (item != null)
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                  _deleteItem(item);
-                },
-                child: const Text('Hapus'),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final String name = nameController.text.trim();
-                final double? price = double.tryParse(
-                  priceController.text.trim().replaceAll(',', '.'),
-                );
-
-                if (name.isEmpty || price == null || price <= 0) {
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      const SnackBar(
-                        content: Text('Nama dan harga barang wajib valid.'),
-                      ),
-                    );
-                  return;
-                }
-
-                Navigator.pop(
-                  dialogContext,
-                  ReceiptItem(
-                    name: name,
-                    quantity: item?.quantity ?? 1,
-                    price: price,
-                  ),
-                );
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
-        );
+        return _ItemDialog(item: item);
       },
-    ).whenComplete(() {
-      nameController.dispose();
-      priceController.dispose();
-    });
+    );
+
+    if (result == null) {
+      return null;
+    }
+
+    if (result.delete) {
+      if (item != null) {
+        _deleteItem(item);
+      }
+      return null;
+    }
+
+    return result.item;
   }
 
   @override
@@ -449,6 +382,123 @@ class _EditItemsPageState extends State<EditItemsPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ItemDialogResult {
+  const _ItemDialogResult.save(this.item) : delete = false;
+
+  const _ItemDialogResult.delete()
+    : item = null,
+      delete = true;
+
+  final ReceiptItem? item;
+  final bool delete;
+}
+
+class _ItemDialog extends StatefulWidget {
+  const _ItemDialog({required this.item});
+
+  final ReceiptItem? item;
+
+  @override
+  State<_ItemDialog> createState() => _ItemDialogState();
+}
+
+class _ItemDialogState extends State<_ItemDialog> {
+  late final TextEditingController _nameController = TextEditingController(
+    text: widget.item?.name ?? '',
+  );
+  late final TextEditingController _priceController = TextEditingController(
+    text: widget.item == null ? '' : _formatInputAmount(widget.item!.price),
+  );
+  final FocusNode _nameFocusNode = FocusNode();
+  final FocusNode _priceFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _nameFocusNode.dispose();
+    _priceFocusNode.dispose();
+    _nameController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final String name = _nameController.text.trim();
+    final double? price = double.tryParse(
+      _priceController.text.trim().replaceAll(',', '.'),
+    );
+
+    if (name.isEmpty || price == null || price <= 0) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Nama dan harga barang wajib valid.')),
+        );
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      _ItemDialogResult.save(
+        ReceiptItem(
+          name: name,
+          quantity: widget.item?.quantity ?? 1,
+          price: price,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.item == null ? 'Tambah Barang' : 'Edit Barang'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          TextField(
+            controller: _nameController,
+            focusNode: _nameFocusNode,
+            autofocus: true,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) => _priceFocusNode.requestFocus(),
+            decoration: const InputDecoration(
+              labelText: 'Nama barang',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _priceController,
+            focusNode: _priceFocusNode,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+            decoration: const InputDecoration(
+              labelText: 'Harga',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        if (widget.item != null)
+          TextButton(
+            onPressed: () => Navigator.pop(
+              context,
+              const _ItemDialogResult.delete(),
+            ),
+            child: const Text('Hapus'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Simpan')),
+      ],
     );
   }
 }
