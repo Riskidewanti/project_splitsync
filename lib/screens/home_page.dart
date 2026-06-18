@@ -1,44 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../authentication/auth_service.dart';
 import '../widgets/responsive.dart';
-import 'welcome_page.dart';
+import 'profile_settings_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
-
-  Future<void> _logout(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout'),
-        content: const Text('Keluar dari akun SplitSync sekarang?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFC8152B),
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) return;
-    await AuthService.logout();
-    if (!context.mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const WelcomePage()),
-      (_) => false,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +49,13 @@ class HomePage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: _BottomNav(onLogout: () => _logout(context)),
+      bottomNavigationBar: _BottomNav(
+        onProfile: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ProfileSettingsPage()),
+          );
+        },
+      ),
     );
   }
 }
@@ -688,9 +660,9 @@ class _ActivityRow extends StatelessWidget {
 }
 
 class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.onLogout});
+  const _BottomNav({required this.onProfile});
 
-  final VoidCallback onLogout;
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -737,7 +709,7 @@ class _BottomNav extends StatelessWidget {
             _NavItem(
               icon: Icons.person_outline_rounded,
               label: 'Profil',
-              onTap: onLogout,
+              onTap: onProfile,
             ),
           ],
         ),

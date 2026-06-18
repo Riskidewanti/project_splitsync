@@ -37,6 +37,53 @@ class SessionProfile {
   }
 }
 
+class ProfileDetails {
+  const ProfileDetails({
+    required this.id,
+    required this.userName,
+    required this.email,
+    required this.phone,
+    required this.avatarUrl,
+    required this.pinCreated,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.groupCount,
+    required this.totalSharedExpense,
+  });
+
+  final String id;
+  final String userName;
+  final String email;
+  final String phone;
+  final String avatarUrl;
+  final bool pinCreated;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final int groupCount;
+  final num totalSharedExpense;
+
+  factory ProfileDetails.fromMap(
+    Map<String, dynamic> data, {
+    int groupCount = 0,
+    num totalSharedExpense = 0,
+  }) {
+    final email = (data['email'] ?? '').toString();
+    return ProfileDetails(
+      id: (data['id'] ?? '').toString(),
+      userName: (data['user_name'] ?? SessionProfile._nameFromEmail(email))
+          .toString(),
+      email: email,
+      phone: (data['phone'] ?? '').toString(),
+      avatarUrl: (data['avatar_url'] ?? '').toString(),
+      pinCreated: data['pin_created'] == true,
+      createdAt: DateTime.tryParse((data['created_at'] ?? '').toString()),
+      updatedAt: DateTime.tryParse((data['updated_at'] ?? '').toString()),
+      groupCount: groupCount,
+      totalSharedExpense: totalSharedExpense,
+    );
+  }
+}
+
 class AuthService {
   AuthService._();
 
@@ -157,21 +204,117 @@ class AuthService {
   static Future<void> markPinCreated(String pin) async {
     _guardConfiguration();
     final profile = await currentSession();
-    if (profile == null) return;
+    if (profile == null) {
+      throw const AuthException(
+        'Session tidak ditemukan. Silakan login ulang.',
+      );
+    }
 
-    await _client
+    final updated = await _client
         .from('profiles')
         .update({'pin_created': true, 'pin_hash': pin})
-        .eq('email', profile.email);
+        .eq('email', profile.email)
+        .select('id,email,user_name,pin_created')
+        .maybeSingle();
+
+    if (updated == null) {
+      throw const AuthException(
+        'PIN belum tersimpan ke database. Periksa policy UPDATE tabel profiles.',
+      );
+    }
 
     await _saveSession(
       SessionProfile(
-        id: profile.id,
-        email: profile.email,
-        username: profile.username,
-        pinCreated: true,
+        id: (updated['id'] ?? profile.id).toString(),
+        email: (updated['email'] ?? profile.email).toString(),
+        username: (updated['user_name'] ?? profile.username).toString(),
+        pinCreated: updated['pin_created'] == true,
       ),
     );
+  }
+
+  static Future<ProfileDetails> fetchCurrentProfile() async {
+    _guardConfiguration();
+    final session = await currentSession();
+    if (session == null) {
+      throw const AuthException(
+        'Session tidak ditemukan. Silakan login ulang.',
+      );
+    }
+
+    final row = await _client
+        .from('profiles')
+        .select(
+          'id,user_name,email,avatar_url,phone,pin_created,created_at,updated_at',
+        )
+        .eq('email', session.email)
+        .maybeSingle();
+
+    if (row == null) {
+      throw const AuthException('Data profil tidak ditemukan.');
+    }
+
+    final groupIds = await _fetchJoinedGroupIds((row['id'] ?? '').toString());
+    final details = ProfileDetails.fromMap(
+      row,
+      groupCount: groupIds.length,
+      totalSharedExpense: await _fetchTotalSharedExpense(groupIds),
+    );
+    await _saveSession(
+      SessionProfile(
+        id: details.id,
+        email: details.email,
+        username: details.userName,
+        pinCreated: details.pinCreated,
+      ),
+    );
+    return details;
+  }
+
+  static Future<List<String>> _fetchJoinedGroupIds(String profileId) async {
+    if (profileId.isEmpty) return const [];
+
+    try {
+      final rows = await _client
+          .from('group_members')
+          .select('group_id')
+          .eq('user_id', profileId);
+
+      final ids = <String>{};
+      for (final row in rows) {
+        final id = row['group_id'];
+        if (id != null && id.toString().isNotEmpty) {
+          ids.add(id.toString());
+        }
+      }
+      return ids.toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  static Future<num> _fetchTotalSharedExpense(List<String> groupIds) async {
+    if (groupIds.isEmpty) return 0;
+
+    try {
+      final rows = await _client
+          .from('expenses')
+          .select('total_amount')
+          .inFilter('group_id', groupIds);
+
+      num total = 0;
+      for (final row in rows) {
+        final amount = row['total_amount'];
+        if (amount is num) {
+          total += amount;
+        } else if (amount != null) {
+          total += num.tryParse(amount.toString()) ?? 0;
+        }
+      }
+      return total;
+    } catch (_) {
+      return 0;
+    }
   }
 
   static Future<void> _saveSession(SessionProfile profile) async {

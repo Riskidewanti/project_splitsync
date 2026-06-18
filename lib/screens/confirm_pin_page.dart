@@ -24,14 +24,29 @@ class _ConfirmPinPageState extends State<ConfirmPinPage> {
       await Future<void>.delayed(const Duration(milliseconds: 160));
       if (!mounted) return;
       if (_confirmation == widget.pin) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('splitsync_pin', widget.pin);
-        await AuthService.markPinCreated(widget.pin);
-        if (!mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const PinCreatedPage()),
-          (_) => false,
-        );
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('splitsync_pin', widget.pin);
+          await AuthService.markPinCreated(widget.pin);
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const PinCreatedPage()),
+            (_) => false,
+          );
+        } catch (error) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.toString()),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xFF8C0010),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          );
+          setState(() => _confirmation = '');
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
