@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 class GeminiReceiptService {
@@ -24,6 +25,9 @@ class GeminiReceiptService {
       response = await _model.generateContent(<Content>[
         Content.text(_buildPrompt(rawText)),
       ]);
+      debugPrint('===== GEMINI RESPONSE =====');
+      debugPrint(response.text);
+      debugPrint('===========================');
     } catch (error, stackTrace) {
       Error.throwWithStackTrace(
         GeminiReceiptServiceException('Failed to parse receipt with Gemini: $error'),
