@@ -3,6 +3,7 @@ import 'dart:ui' show PathMetric, PathMetrics;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/env.dart';
 import '../../../../core/services/gemini_receipt_service.dart';
 import '../../data/datasources/ocr_service.dart';
 import '../../data/utils/receipt_parser.dart';
@@ -22,7 +23,7 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
   final OCRService _ocrService = const OCRService();
   final ReceiptParser _receiptParser = const ReceiptParser();
   final GeminiReceiptService _geminiService = GeminiReceiptService(
-    apiKey: 'REPLACE_WITH_API_KEY',
+    apiKey: Env.geminiApiKey,
   );
   bool _isRunningOCR = false;
 
