@@ -45,6 +45,9 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       print('========================');
       late final Map<String, dynamic> parsedResult;
       try {
+        debugPrint(
+          'Gemini API key configured: ${Env.geminiApiKey.isNotEmpty}',
+        );
         parsedResult = await _geminiService.parseReceipt(extractedText);
       } catch (error) {
         print('Gemini receipt parsing failed: $error');
