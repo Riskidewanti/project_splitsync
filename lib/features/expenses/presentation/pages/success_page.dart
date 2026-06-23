@@ -20,7 +20,7 @@ class SuccessPage extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          onPressed: () {},
+          onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back, size: 18),
         ),
         title: const Text(
@@ -75,7 +75,9 @@ class SuccessPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+                      },
                       child: const Text(
                         'Selesai',
                         style: TextStyle(
