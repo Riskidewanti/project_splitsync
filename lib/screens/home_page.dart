@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../authentication/auth_service.dart';
+import '../core/services/local_notification_service.dart';
 import '../widgets/responsive.dart';
 import 'welcome_page.dart';
 
@@ -64,6 +65,8 @@ class HomePage extends StatelessWidget {
                     children: [
                       const _BalanceCard(),
                       SizedBox(height: responsive.space(22)),
+                      const _TestNotificationButton(),
+                      SizedBox(height: responsive.space(22)),
                       const _QuickActions(),
                       SizedBox(height: responsive.space(26)),
                       _SectionTitle(
@@ -84,6 +87,25 @@ class HomePage extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: _BottomNav(onLogout: () => _logout(context)),
+    );
+  }
+}
+
+class _TestNotificationButton extends StatelessWidget {
+  const _TestNotificationButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () => LocalNotificationService.instance.show(
+          title: 'Test Notification',
+          body: 'This is a test notification',
+        ),
+        icon: const Icon(Icons.notifications_active_outlined),
+        label: const Text('Test Notification'),
+      ),
     );
   }
 }
