@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/responsive.dart';
+import '../../widgets/responsive.dart';
 import 'create_pin_page.dart';
-import 'home_page.dart';
+import '../home/home_page.dart';
 
 class AddPinOptionPage extends StatelessWidget {
   const AddPinOptionPage({super.key});
@@ -16,7 +16,9 @@ class AddPinOptionPage extends StatelessWidget {
         child: ResponsivePage(
           maxWidth: 430,
           scrollable: true,
-          padding: responsive.horizontal(18).copyWith(
+          padding: responsive
+              .horizontal(18)
+              .copyWith(
                 top: responsive.space(28),
                 bottom: responsive.space(14),
               ),

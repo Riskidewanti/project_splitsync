@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/responsive.dart';
+import '../../widgets/responsive.dart';
 import 'confirm_pin_page.dart';
 
 class CreatePinPage extends StatefulWidget {

@@ -1,7 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
-import '../authentication/auth_service.dart';
-import '../widgets/responsive.dart';
+import '../../authentication/auth_service.dart';
+import '../../widgets/responsive.dart';
+import '../authentication/create_pin_page.dart';
+
+enum _EditableField { name, email, phone }
+
+class _ProfileEditValues {
+  const _ProfileEditValues({
+    required this.userName,
+    required this.email,
+    required this.phone,
+  });
+
+  final String userName;
+  final String email;
+  final String phone;
+}
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -11,12 +27,100 @@ class AccountSettingsPage extends StatefulWidget {
 }
 
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
-  late final Future<ProfileDetails> _profileFuture;
+  late Future<ProfileDetails> _profileFuture;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
     super.initState();
     _profileFuture = AuthService.fetchCurrentProfile();
+  }
+
+  Future<void> _editProfile(
+    ProfileDetails profile,
+    _EditableField field,
+  ) async {
+    final updated = await showDialog<_ProfileEditValues>(
+      context: context,
+      builder: (context) => _EditProfileDialog(profile: profile, field: field),
+    );
+    if (updated == null) return;
+
+    try {
+      final saved = await AuthService.updateCurrentProfile(
+        userName: updated.userName,
+        email: updated.email,
+        phone: updated.phone,
+      );
+      if (!mounted) return;
+      setState(() {
+        _profileFuture = Future.value(saved);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil berhasil disimpan.'),
+          backgroundColor: Color(0xFFC8152B),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString()),
+          backgroundColor: const Color(0xFF9A0010),
+        ),
+      );
+    }
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    if (_uploadingPhoto) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+
+      setState(() {
+        _uploadingPhoto = true;
+      });
+      final saved = await AuthService.updateCurrentProfilePhoto(
+        bytes: await picked.readAsBytes(),
+        fileName: picked.name,
+      );
+      if (!mounted) return;
+      setState(() {
+        _profileFuture = Future.value(saved);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Foto profil berhasil disimpan.'),
+          backgroundColor: Color(0xFFC8152B),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString()),
+          backgroundColor: const Color(0xFF9A0010),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploadingPhoto = false;
+        });
+      }
+    }
+  }
+
+  void _changePin() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CreatePinPage()));
   }
 
   @override
@@ -41,7 +145,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               );
             }
 
-            return _AccountSettingsBody(profile: snapshot.requireData);
+            return _AccountSettingsBody(
+              profile: snapshot.requireData,
+              onEdit: _editProfile,
+              onChangePhoto: _changeProfilePhoto,
+              onChangePin: _changePin,
+              uploadingPhoto: _uploadingPhoto,
+            );
           },
         ),
       ),
@@ -51,9 +161,20 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
 }
 
 class _AccountSettingsBody extends StatelessWidget {
-  const _AccountSettingsBody({required this.profile});
+  const _AccountSettingsBody({
+    required this.profile,
+    required this.onEdit,
+    required this.onChangePhoto,
+    required this.onChangePin,
+    required this.uploadingPhoto,
+  });
 
   final ProfileDetails profile;
+  final Future<void> Function(ProfileDetails profile, _EditableField field)
+  onEdit;
+  final VoidCallback onChangePhoto;
+  final VoidCallback onChangePin;
+  final bool uploadingPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -73,9 +194,17 @@ class _AccountSettingsBody extends StatelessWidget {
               maxWidth: 430,
               child: Column(
                 children: [
-                  _AccountHeader(profile: profile),
+                  _AccountHeader(
+                    profile: profile,
+                    onChangePhoto: onChangePhoto,
+                    uploadingPhoto: uploadingPhoto,
+                  ),
                   SizedBox(height: responsive.space(50)),
-                  _InfoCard(profile: profile),
+                  _InfoCard(
+                    profile: profile,
+                    onEdit: onEdit,
+                    onChangePin: onChangePin,
+                  ),
                   SizedBox(height: responsive.space(52)),
                   const _PreferenceCard(),
                 ],
@@ -129,9 +258,15 @@ class _AccountAppBar extends StatelessWidget {
 }
 
 class _AccountHeader extends StatelessWidget {
-  const _AccountHeader({required this.profile});
+  const _AccountHeader({
+    required this.profile,
+    required this.onChangePhoto,
+    required this.uploadingPhoto,
+  });
 
   final ProfileDetails profile;
+  final VoidCallback onChangePhoto;
+  final bool uploadingPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +276,11 @@ class _AccountHeader extends StatelessWidget {
         : profile.userName;
     return Column(
       children: [
-        _AccountAvatar(profile: profile),
+        _AccountAvatar(
+          profile: profile,
+          onTap: onChangePhoto,
+          uploading: uploadingPhoto,
+        ),
         SizedBox(height: responsive.space(26)),
         Text(
           name,
@@ -172,9 +311,15 @@ class _AccountHeader extends StatelessWidget {
 }
 
 class _AccountAvatar extends StatelessWidget {
-  const _AccountAvatar({required this.profile});
+  const _AccountAvatar({
+    required this.profile,
+    required this.onTap,
+    required this.uploading,
+  });
 
   final ProfileDetails profile;
+  final VoidCallback onTap;
+  final bool uploading;
 
   @override
   Widget build(BuildContext context) {
@@ -183,46 +328,88 @@ class _AccountAvatar extends StatelessWidget {
         ? profile.userName.trim().substring(0, 1).toUpperCase()
         : 'S';
 
-    return Container(
-      width: responsive.clamp(104, 90, 112),
-      height: responsive.clamp(104, 90, 112),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xFF151F2A),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 16,
-            offset: Offset(0, 8),
+    final size = responsive.clamp(104, 90, 112);
+    return InkWell(
+      onTap: uploading ? null : onTap,
+      customBorder: const CircleBorder(),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF151F2A),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 16,
+                  offset: Offset(0, 8),
+                ),
+              ],
+              image: profile.avatarUrl.isEmpty
+                  ? null
+                  : DecorationImage(
+                      image: NetworkImage(profile.avatarUrl),
+                      fit: BoxFit.cover,
+                    ),
+            ),
+            child: uploading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  )
+                : profile.avatarUrl.isEmpty
+                ? Center(
+                    child: Text(
+                      initials,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: responsive.font(36),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: responsive.clamp(34, 30, 36),
+              height: responsive.clamp(34, 30, 36),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC8152B),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+              ),
+              child: Icon(
+                Icons.camera_alt_rounded,
+                color: Colors.white,
+                size: responsive.clamp(18, 16, 20),
+              ),
+            ),
           ),
         ],
-        image: profile.avatarUrl.isEmpty
-            ? null
-            : DecorationImage(
-                image: NetworkImage(profile.avatarUrl),
-                fit: BoxFit.cover,
-              ),
       ),
-      child: profile.avatarUrl.isEmpty
-          ? Center(
-              child: Text(
-                initials,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: responsive.font(36),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            )
-          : null,
     );
   }
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.profile});
+  const _InfoCard({
+    required this.profile,
+    required this.onEdit,
+    required this.onChangePin,
+  });
 
   final ProfileDetails profile;
+  final Future<void> Function(ProfileDetails profile, _EditableField field)
+  onEdit;
+  final VoidCallback onChangePin;
 
   @override
   Widget build(BuildContext context) {
@@ -233,11 +420,36 @@ class _InfoCard extends StatelessWidget {
     return _SectionCard(
       title: 'INFO PRIBADI',
       children: [
-        _EditableInfoRow(label: 'Nama', value: name),
+        _EditableInfoRow(
+          label: 'Nama',
+          value: name,
+          onTap: () {
+            onEdit(profile, _EditableField.name);
+          },
+        ),
         const _ThinDivider(),
-        _EditableInfoRow(label: 'Email', value: profile.email),
+        _EditableInfoRow(
+          label: 'Email',
+          value: profile.email,
+          onTap: () {
+            onEdit(profile, _EditableField.email);
+          },
+        ),
         const _ThinDivider(),
-        _EditableInfoRow(label: 'Nomor Hp', value: phone),
+        _EditableInfoRow(
+          label: 'Nomor Hp',
+          value: phone,
+          onTap: () {
+            onEdit(profile, _EditableField.phone);
+          },
+        ),
+        const _ThinDivider(),
+        _ActionInfoRow(
+          label: 'PIN Keamanan',
+          value: profile.pinCreated ? 'Ganti PIN' : 'Buat PIN',
+          icon: Icons.lock_reset_rounded,
+          onTap: onChangePin,
+        ),
       ],
     );
   }
@@ -311,53 +523,276 @@ class _SectionCard extends StatelessWidget {
 }
 
 class _EditableInfoRow extends StatelessWidget {
-  const _EditableInfoRow({required this.label, required this.value});
+  const _EditableInfoRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
 
   final String label;
   final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final responsive = Responsive.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: responsive.space(6)),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: const Color(0xFF5D5353),
-                    fontSize: responsive.font(13),
-                    fontWeight: FontWeight.w800,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: responsive.space(6)),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: const Color(0xFF5D5353),
+                      fontSize: responsive.font(13),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                SizedBox(height: responsive.space(8)),
-                Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: const Color(0xFF181818),
-                    fontSize: responsive.font(18),
-                    fontWeight: FontWeight.w500,
-                    height: 1.15,
+                  SizedBox(height: responsive.space(8)),
+                  Text(
+                    value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF181818),
+                      fontSize: responsive.font(18),
+                      fontWeight: FontWeight.w500,
+                      height: 1.15,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          SizedBox(width: responsive.space(16)),
-          Icon(
-            Icons.edit_rounded,
-            color: const Color(0xFF5F5F5F),
-            size: responsive.clamp(23, 20, 25),
-          ),
-        ],
+            SizedBox(width: responsive.space(16)),
+            Icon(
+              Icons.edit_rounded,
+              color: const Color(0xFF5F5F5F),
+              size: responsive.clamp(23, 20, 25),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _ActionInfoRow extends StatelessWidget {
+  const _ActionInfoRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = Responsive.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: responsive.space(6)),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: const Color(0xFF5D5353),
+                      fontSize: responsive.font(13),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: responsive.space(8)),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF181818),
+                      fontSize: responsive.font(18),
+                      fontWeight: FontWeight.w600,
+                      height: 1.15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: responsive.space(16)),
+            Container(
+              width: responsive.clamp(36, 32, 38),
+              height: responsive.clamp(36, 32, 38),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFD8DB),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: const Color(0xFFC8152B),
+                size: responsive.clamp(21, 19, 23),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  const _EditProfileDialog({required this.profile, required this.field});
+
+  final ProfileDetails profile;
+  final _EditableField field;
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.profile.userName);
+    _emailController = TextEditingController(text: widget.profile.email);
+    _phoneController = TextEditingController(text: widget.profile.phone);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  String get _title {
+    switch (widget.field) {
+      case _EditableField.name:
+        return 'Edit Nama';
+      case _EditableField.email:
+        return 'Edit Email';
+      case _EditableField.phone:
+        return 'Edit Nomor Hp';
+    }
+  }
+
+  TextEditingController get _activeController {
+    switch (widget.field) {
+      case _EditableField.name:
+        return _nameController;
+      case _EditableField.email:
+        return _emailController;
+      case _EditableField.phone:
+        return _phoneController;
+    }
+  }
+
+  TextInputType get _keyboardType {
+    switch (widget.field) {
+      case _EditableField.name:
+        return TextInputType.name;
+      case _EditableField.email:
+        return TextInputType.emailAddress;
+      case _EditableField.phone:
+        return TextInputType.phone;
+    }
+  }
+
+  String get _label {
+    switch (widget.field) {
+      case _EditableField.name:
+        return 'Nama';
+      case _EditableField.email:
+        return 'Email';
+      case _EditableField.phone:
+        return 'Nomor Hp';
+    }
+  }
+
+  void _save() {
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nama dan email wajib diisi.'),
+          backgroundColor: Color(0xFF9A0010),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).pop(
+      _ProfileEditValues(
+        userName: _nameController.text,
+        email: _emailController.text,
+        phone: _phoneController.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      title: Text(
+        _title,
+        style: const TextStyle(
+          color: Color(0xFF111B2C),
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      content: TextField(
+        controller: _activeController,
+        autofocus: true,
+        keyboardType: _keyboardType,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _save(),
+        decoration: InputDecoration(
+          labelText: _label,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFC8152B)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: _save,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFC8152B),
+          ),
+          child: const Text('Simpan'),
+        ),
+      ],
     );
   }
 }

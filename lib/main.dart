@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'authentication/auth_service.dart';
-import 'screens/splash_screen.dart';
+import 'screens/authentication/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

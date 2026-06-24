@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../authentication/auth_service.dart';
-import '../widgets/responsive.dart';
+import '../../authentication/auth_service.dart';
+import '../../widgets/responsive.dart';
 import 'add_pin_option_page.dart';
-import 'home_page.dart';
+import '../home/home_page.dart';
 import 'welcome_page.dart';
 
 class SplashScreen extends StatefulWidget {

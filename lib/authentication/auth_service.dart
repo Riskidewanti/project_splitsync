@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -87,6 +89,7 @@ class ProfileDetails {
 class AuthService {
   AuthService._();
 
+  static const _avatarBucket = 'avatars';
   static const _sessionId = 'splitsync_session_id';
   static const _sessionEmail = 'splitsync_session_email';
   static const _sessionUsername = 'splitsync_session_username';
@@ -271,6 +274,176 @@ class AuthService {
     return details;
   }
 
+  static Future<ProfileDetails> updateCurrentProfile({
+    required String userName,
+    required String email,
+    required String phone,
+  }) async {
+    _guardConfiguration();
+    final session = await currentSession();
+    if (session == null) {
+      throw const AuthException(
+        'Session tidak ditemukan. Silakan login ulang.',
+      );
+    }
+
+    final normalizedEmail = email.trim().toLowerCase();
+    final normalizedUserName = userName.trim();
+    final normalizedPhone = phone.trim();
+    if (normalizedUserName.isEmpty || normalizedEmail.isEmpty) {
+      throw const AuthException('Nama dan email wajib diisi.');
+    }
+
+    var row = await _client
+        .from('profiles')
+        .update({
+          'user_name': normalizedUserName,
+          'email': normalizedEmail,
+          'phone': normalizedPhone,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', session.id)
+        .select(
+          'id,user_name,email,avatar_url,phone,pin_created,created_at,updated_at',
+        )
+        .maybeSingle();
+
+    row ??= await _client
+        .from('profiles')
+        .update({
+          'user_name': normalizedUserName,
+          'email': normalizedEmail,
+          'phone': normalizedPhone,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('email', session.email)
+        .select(
+          'id,user_name,email,avatar_url,phone,pin_created,created_at,updated_at',
+        )
+        .maybeSingle();
+
+    if (row == null) {
+      throw const AuthException(
+        'Profil belum tersimpan. Periksa policy UPDATE tabel profiles.',
+      );
+    }
+
+    final groupIds = await _fetchJoinedGroupIds((row['id'] ?? '').toString());
+    final details = ProfileDetails.fromMap(
+      row,
+      groupCount: groupIds.length,
+      totalSharedExpense: await _fetchTotalSharedExpense(groupIds),
+    );
+    await _saveSession(
+      SessionProfile(
+        id: details.id,
+        email: details.email,
+        username: details.userName,
+        pinCreated: details.pinCreated,
+      ),
+    );
+    return details;
+  }
+
+  static Future<ProfileDetails> updateCurrentProfilePhoto({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    _guardConfiguration();
+    final session = await currentSession();
+    if (session == null) {
+      throw const AuthException(
+        'Session tidak ditemukan. Silakan login ulang.',
+      );
+    }
+    if (bytes.isEmpty) {
+      throw const AuthException('File foto tidak boleh kosong.');
+    }
+
+    final extension = _fileExtension(fileName);
+    final path =
+        '${session.id}/profile_${DateTime.now().millisecondsSinceEpoch}.$extension';
+    try {
+      await _client.storage
+          .from(_avatarBucket)
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(
+              upsert: true,
+              cacheControl: '3600',
+              contentType: _contentType(extension),
+            ),
+          );
+    } on StorageException catch (error) {
+      final isMissingBucket =
+          error.statusCode == '404' ||
+          error.message.toLowerCase().contains('bucket not found');
+      if (isMissingBucket) {
+        throw const AuthException(
+          'Bucket Storage "avatars" belum ada di Supabase. Buat bucket avatars terlebih dahulu.',
+        );
+      }
+      final isUnauthorized =
+          error.statusCode == '403' ||
+          error.message.toLowerCase().contains('row-level security') ||
+          error.error?.toLowerCase().contains('unauthorized') == true;
+      if (isUnauthorized) {
+        throw const AuthException(
+          'Upload foto ditolak oleh policy Storage. Izinkan INSERT/SELECT/UPDATE untuk bucket avatars di Supabase.',
+        );
+      }
+      rethrow;
+    }
+
+    final avatarUrl = _client.storage.from(_avatarBucket).getPublicUrl(path);
+    var row = await _client
+        .from('profiles')
+        .update({
+          'avatar_url': avatarUrl,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', session.id)
+        .select(
+          'id,user_name,email,avatar_url,phone,pin_created,created_at,updated_at',
+        )
+        .maybeSingle();
+
+    row ??= await _client
+        .from('profiles')
+        .update({
+          'avatar_url': avatarUrl,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('email', session.email)
+        .select(
+          'id,user_name,email,avatar_url,phone,pin_created,created_at,updated_at',
+        )
+        .maybeSingle();
+
+    if (row == null) {
+      throw const AuthException(
+        'Foto profil belum tersimpan. Periksa policy UPDATE tabel profiles.',
+      );
+    }
+
+    final groupIds = await _fetchJoinedGroupIds((row['id'] ?? '').toString());
+    final details = ProfileDetails.fromMap(
+      row,
+      groupCount: groupIds.length,
+      totalSharedExpense: await _fetchTotalSharedExpense(groupIds),
+    );
+    await _saveSession(
+      SessionProfile(
+        id: details.id,
+        email: details.email,
+        username: details.userName,
+        pinCreated: details.pinCreated,
+      ),
+    );
+    return details;
+  }
+
   static Future<List<String>> _fetchJoinedGroupIds(String profileId) async {
     if (profileId.isEmpty) return const [];
 
@@ -323,6 +496,27 @@ class AuthService {
     await prefs.setString(_sessionEmail, profile.email);
     await prefs.setString(_sessionUsername, profile.username);
     await prefs.setBool(_sessionPinCreated, profile.pinCreated);
+  }
+
+  static String _fileExtension(String fileName) {
+    final lower = fileName.toLowerCase();
+    final parts = lower.split('.');
+    final extension = parts.length > 1 ? parts.last : 'jpg';
+    if (extension == 'jpeg' || extension == 'jpg' || extension == 'png') {
+      return extension;
+    }
+    return 'jpg';
+  }
+
+  static String _contentType(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'jpeg':
+      case 'jpg':
+      default:
+        return 'image/jpeg';
+    }
   }
 
   static void _guardConfiguration() {

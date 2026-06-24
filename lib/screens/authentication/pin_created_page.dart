@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/responsive.dart';
-import 'home_page.dart';
+import '../../widgets/responsive.dart';
+import '../home/home_page.dart';
 
 class PinCreatedPage extends StatelessWidget {
   const PinCreatedPage({super.key});

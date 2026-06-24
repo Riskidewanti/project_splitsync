@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../authentication/auth_service.dart';
-import '../widgets/responsive.dart';
+import '../../authentication/auth_service.dart';
+import '../../widgets/responsive.dart';
+import '../authentication/welcome_page.dart';
 import 'account_settings_page.dart';
-import 'welcome_page.dart';
+import 'notification_settings_page.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -372,6 +373,7 @@ class _SettingsCard extends StatelessWidget {
             icon: Icons.notifications_none_rounded,
             title: 'Pengaturan Notifikasi',
             subtitle: 'Email, push, SMS',
+            destination: NotificationSettingsPage(),
           ),
           const Divider(height: 1, color: Color(0xFFEDEDED)),
           const _SettingsTile(

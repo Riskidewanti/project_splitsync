@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../widgets/responsive.dart';
+import '../../widgets/responsive.dart';
 import 'auth_page.dart';
 
 class WelcomePage extends StatelessWidget {

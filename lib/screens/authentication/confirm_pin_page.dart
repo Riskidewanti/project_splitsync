@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../authentication/auth_service.dart';
+import '../../authentication/auth_service.dart';
 import 'create_pin_page.dart';
 import 'pin_created_page.dart';
 

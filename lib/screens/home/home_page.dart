@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/responsive.dart';
-import 'profile_settings_page.dart';
+import '../../widgets/responsive.dart';
+import '../profile_setting/profile_settings_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
