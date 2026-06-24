@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'authentication/auth_service.dart';
+import 'core/services/local_notification_service.dart';
 import 'screens/splash_screen.dart';
 import 'features/ocr/presentation/pages/scan_page.dart';
 Future<void> main() async {
@@ -12,6 +13,7 @@ Future<void> main() async {
   );
 
   await AuthService.initialize();
+  await LocalNotificationService.instance.initialize();
 
   debugPrint('Supabase Connected!');
   debugPrint('${Supabase.instance.client.auth.currentUser}');
