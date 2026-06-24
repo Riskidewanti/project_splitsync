@@ -221,9 +221,9 @@ class _GroupHomePageState extends State<GroupHomePage> {
           ],
         ),
       ),
-      bottomNavigationBar: const _SplitSyncBottomNavigation(),
-      floatingActionButton: _CenterCreateButton(onCreateGroup: _openCreateGroup),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: _SplitSyncBottomNavigation(
+        onCreateGroup: _openCreateGroup,
+      ),
     );
   }
 }
@@ -351,7 +351,9 @@ class _GroupSectionHeader extends StatelessWidget {
 }
 
 class _SplitSyncBottomNavigation extends StatelessWidget {
-  const _SplitSyncBottomNavigation();
+  const _SplitSyncBottomNavigation({required this.onCreateGroup});
+
+  final VoidCallback onCreateGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -369,18 +371,18 @@ class _SplitSyncBottomNavigation extends StatelessWidget {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
-          _BottomNavigationItem(icon: Icons.home, label: 'Beranda'),
-          _BottomNavigationItem(
+          const _BottomNavigationItem(icon: Icons.home, label: 'Beranda'),
+          const _BottomNavigationItem(
             icon: Icons.groups_outlined,
             label: 'Grup',
             isActive: true,
           ),
-          SizedBox(width: 54),
-          _BottomNavigationItem(icon: Icons.bar_chart, label: 'Laporan'),
-          _BottomNavigationItem(icon: Icons.person_outline, label: 'Profil'),
+          _CenterCreateButton(onCreateGroup: onCreateGroup),
+          const _BottomNavigationItem(icon: Icons.bar_chart, label: 'Laporan'),
+          const _BottomNavigationItem(icon: Icons.person_outline, label: 'Profil'),
         ],
       ),
     );
@@ -439,20 +441,23 @@ class _CenterCreateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 22),
-      child: SizedBox(
-        width: 52,
-        height: 52,
-        child: FloatingActionButton(
-          elevation: 4,
-          backgroundColor: const Color(0xFFC70F1B),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+    return SizedBox(
+      width: 54,
+      height: 50,
+      child: Center(
+        child: SizedBox(
+          width: 52,
+          height: 52,
+          child: FloatingActionButton(
+            elevation: 4,
+            backgroundColor: const Color(0xFFC70F1B),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            onPressed: onCreateGroup,
+            child: const Icon(Icons.add, size: 34),
           ),
-          onPressed: onCreateGroup,
-          child: const Icon(Icons.add, size: 34),
         ),
       ),
     );
