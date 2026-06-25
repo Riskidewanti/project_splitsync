@@ -32,8 +32,12 @@ class _EditExpensePageState extends State<EditExpensePage> {
   @override
   void initState() {
     super.initState();
-    _descriptionController = TextEditingController(text: widget.initialDescription);
-    _amountController = TextEditingController(text: widget.initialAmount.toString());
+    _descriptionController = TextEditingController(
+      text: widget.initialDescription,
+    );
+    _amountController = TextEditingController(
+      text: widget.initialAmount.toString(),
+    );
     _noteController = TextEditingController(text: widget.initialNote);
     _selectedCategory = widget.initialCategory;
     _tags = List<String>.from(widget.initialTags);
@@ -139,7 +143,10 @@ class _EditExpensePageState extends State<EditExpensePage> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFFD70F1F)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
       ),
     );
   }
@@ -165,16 +172,26 @@ class _EditExpensePageState extends State<EditExpensePage> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFFD70F1F)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
       ),
     );
   }
 
   Widget _buildCategoryDropdown() {
-    final List<String> categories = <String>['food', 'transport', 'entertainment', 'utilities', 'shopping', 'other'];
+    final List<String> categories = <String>[
+      'food',
+      'transport',
+      'entertainment',
+      'utilities',
+      'shopping',
+      'other',
+    ];
 
     return DropdownButtonFormField<String>(
-      value: _selectedCategory,
+      initialValue: _selectedCategory,
       items: categories.map((String category) {
         return DropdownMenuItem<String>(
           value: category,
@@ -203,7 +220,10 @@ class _EditExpensePageState extends State<EditExpensePage> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFFD70F1F)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
       ),
     );
   }
@@ -229,7 +249,10 @@ class _EditExpensePageState extends State<EditExpensePage> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFFD70F1F)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
       ),
     );
   }
@@ -409,7 +432,9 @@ class _EditExpensePageState extends State<EditExpensePage> {
   void _handleUpdate() {
     if (_descriptionController.text.isEmpty || _amountController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Silakan isi semua field yang diperlukan')),
+        const SnackBar(
+          content: Text('Silakan isi semua field yang diperlukan'),
+        ),
       );
       return;
     }
@@ -428,7 +453,9 @@ class _EditExpensePageState extends State<EditExpensePage> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Hapus Pengeluaran'),
-          content: const Text('Apakah Anda yakin ingin menghapus pengeluaran ini?'),
+          content: const Text(
+            'Apakah Anda yakin ingin menghapus pengeluaran ini?',
+          ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.pop(context),
