@@ -1,3 +1,8 @@
+import 'dart:async';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -45,6 +50,10 @@ class AuthService {
   static const _sessionUsername = 'splitsync_session_username';
   static const _sessionPinCreated = 'splitsync_session_pin_created';
 
+  static StreamSubscription<String>? _fcmTokenRefreshSubscription;
+  static Future<void>? _fcmInitialization;
+  static bool _fcmReady = false;
+
   static bool get isConfigured => SupabaseConfig.isConfigured;
 
   static SupabaseClient get _client => Supabase.instance.client;
@@ -55,6 +64,7 @@ class AuthService {
       url: SupabaseConfig.url,
       publishableKey: SupabaseConfig.publishableKey,
     );
+    unawaited(_initializeFcmTokenPersistence());
   }
 
   static Future<SessionProfile?> currentSession() async {
@@ -96,6 +106,7 @@ class AuthService {
 
     final profile = SessionProfile.fromMap(row);
     await _saveSession(profile);
+    unawaited(_persistCurrentFcmToken(profile.email));
     return profile;
   }
 
@@ -143,6 +154,7 @@ class AuthService {
       pinCreated: row['pin_created'] == true,
     );
     await _saveSession(profile);
+    unawaited(_persistCurrentFcmToken(profile.email));
     return profile;
   }
 
@@ -180,6 +192,59 @@ class AuthService {
     await prefs.setString(_sessionEmail, profile.email);
     await prefs.setString(_sessionUsername, profile.username);
     await prefs.setBool(_sessionPinCreated, profile.pinCreated);
+  }
+
+  static Future<void> _initializeFcmTokenPersistence() {
+    return _fcmInitialization ??= _doInitializeFcmTokenPersistence();
+  }
+
+  static Future<void> _doInitializeFcmTokenPersistence() async {
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
+      _fcmReady = true;
+      _fcmTokenRefreshSubscription ??=
+          FirebaseMessaging.instance.onTokenRefresh.listen(
+        (token) async {
+          final profile = await currentSession();
+          if (profile == null) return;
+          await _saveFcmToken(email: profile.email, token: token);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint('FCM token refresh listener failed: $error');
+        },
+      );
+    } catch (error, stackTrace) {
+      _fcmReady = false;
+      debugPrint('FCM token persistence unavailable: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  static Future<void> _persistCurrentFcmToken(String email) async {
+    try {
+      await _initializeFcmTokenPersistence();
+      if (!_fcmReady) return;
+
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null || token.isEmpty) return;
+
+      await _saveFcmToken(email: email, token: token);
+    } catch (error, stackTrace) {
+      debugPrint('Failed to persist FCM token: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  static Future<void> _saveFcmToken({
+    required String email,
+    required String token,
+  }) async {
+    await _client
+        .from('profiles')
+        .update({'fcm_token': token})
+        .eq('email', email);
   }
 
   static void _guardConfiguration() {
