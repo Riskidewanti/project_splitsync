@@ -5,6 +5,7 @@ import 'authentication/auth_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'screens/splash_screen.dart';
+import 'features/ocr/presentation/pages/scan_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,7 +46,7 @@ class SplitSyncApp extends StatelessWidget {
         ),
         fontFamily: 'Arial',
       ),
-      home: const SplashScreen(),
+      home: const ScanPage(),
     );
   }
 }
