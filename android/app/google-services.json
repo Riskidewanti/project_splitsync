@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "73354898938",
+    "project_id": "splitsync-6b39b",
+    "storage_bucket": "splitsync-6b39b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:73354898938:android:4427c01313844028a08843",
+        "android_client_info": {
+          "package_name": "com.example.splitsync"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6afM0drX8djp50jmEdvNzbtm9exjb0K4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -6,11 +6,14 @@ import 'core/services/fcm_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'screens/splash_screen.dart';
 import 'features/ocr/presentation/pages/scan_page.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );  
 
   await Supabase.initialize(
     url: 'https://mkdacnbbvjgekosdhevw.supabase.co',
