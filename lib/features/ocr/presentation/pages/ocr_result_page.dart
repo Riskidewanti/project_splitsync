@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'edit_items_page.dart';
+import '../../../split_bill/presentation/pages/review_items_page.dart';
 
 class OCRResultPage extends StatelessWidget {
   const OCRResultPage({
@@ -379,9 +380,8 @@ class _BottomActions extends StatelessWidget {
                   context,
                   MaterialPageRoute<void>(
                     builder: (BuildContext context) {
-                      return EditItemsPage(
+                      return ReviewItemsPage(
                         items: items,
-                        subtotal: _itemsSubtotal(items),
                         tax: 0,
                         serviceFee: 0,
                       );
@@ -431,12 +431,6 @@ class _CardShell extends StatelessWidget {
       child: child,
     );
   }
-}
-
-double _itemsSubtotal(List<ReceiptItem> items) {
-  return items.fold<double>(0, (double subtotal, ReceiptItem item) {
-    return subtotal + item.price;
-  });
 }
 
 String _formatCurrency(double value) {

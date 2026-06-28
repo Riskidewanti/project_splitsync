@@ -6,7 +6,9 @@ import 'authentication/auth_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'features/ocr/presentation/pages/scan_page.dart';
+import 'features/settlements/presentation/pages/settlement_debt_list_page.dart';
 import 'firebase_options.dart';
+import 'reports/reports_page.dart';
 import 'screens/authentication/add_pin_option_page.dart';
 import 'screens/authentication/auth_page.dart';
 import 'screens/authentication/create_pin_page.dart';
@@ -14,7 +16,6 @@ import 'screens/authentication/pin_created_page.dart';
 import 'screens/authentication/splash_screen.dart';
 import 'screens/authentication/welcome_page.dart';
 import 'screens/home/home_page.dart';
-import 'reports/reports_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,6 +81,7 @@ class SplitSyncApp extends StatelessWidget {
         '/home': (_) => const HomePage(),
         '/scan': (_) => const ScanPage(),
         '/reports': (_) => const ReportsPage(),
+        '/settlements': (_) => const SettlementDebtListPage(),
       },
     );
   }

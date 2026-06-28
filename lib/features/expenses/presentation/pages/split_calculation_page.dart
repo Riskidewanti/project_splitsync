@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'confirm_expense_page.dart';
-
 class SplitMember {
   const SplitMember({
     required this.name,
@@ -14,438 +12,478 @@ class SplitMember {
   final double amount;
 }
 
-class SplitCalculationPage extends StatefulWidget {
+class SplitCalculationPage extends StatelessWidget {
   const SplitCalculationPage({
     super.key,
     required this.totalAmount,
     required this.members,
+    this.description = 'Pengeluaran',
+    this.category = 'expense',
+    this.groupName = 'Grup',
+    this.expenseDate,
   });
 
   final double totalAmount;
   final List<SplitMember> members;
+  final String description;
+  final String category;
+  final String groupName;
+  final DateTime? expenseDate;
 
-  @override
-  State<SplitCalculationPage> createState() => _SplitCalculationPageState();
-}
-
-class _SplitCalculationPageState extends State<SplitCalculationPage> {
-  int _selectedSegment = 0;
+  static const Color _primary = Color(0xFF8D000B);
+  static const Color _ink = Color(0xFF102033);
+  static const Color _surface = Color(0xFFFFFAF7);
+  static const Color _muted = Color(0xFF756B6B);
+  static const Color _border = Color(0xFFE9EEF7);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF7F4),
+      backgroundColor: _surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2933),
-        elevation: 0,
+        foregroundColor: _ink,
+        elevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.10),
         centerTitle: true,
         leading: IconButton(
           onPressed: () => Navigator.maybePop(context),
-          icon: const Icon(Icons.arrow_back, size: 20),
+          icon: const Icon(Icons.arrow_back, size: 24),
         ),
         title: const Text(
-          'SplitSync',
+          'Tambah Pengeluaran',
           style: TextStyle(
-            color: Color(0xFFD70F1F),
-            fontSize: 17,
+            color: _ink,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
           ),
         ),
       ),
       body: SafeArea(
-        top: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-              child: Column(
-                children: <Widget>[
-                  const Text(
-                    'Total Bill',
-                    style: TextStyle(
-                      color: Color(0xFF7A818C),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatCurrency(widget.totalAmount),
-                    style: const TextStyle(
-                      color: Color(0xFF1F2933),
-                      fontSize: 38,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 26),
-                  _SplitSegmentedControl(
-                    selectedIndex: _selectedSegment,
-                    onChanged: (int value) {
-                      setState(() {
-                        _selectedSegment = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 22),
-                  _MemberListCard(
-                    members: widget.members,
-                    selectedSegment: _selectedSegment,
-                  ),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 22),
+              children: <Widget>[
+                const _SuccessHeader(),
+                const SizedBox(height: 18),
+                _ExpenseSummaryCard(
+                  category: _categoryLabel(category),
+                  amount: totalAmount,
+                  date: _formatDate(expenseDate ?? DateTime.now()),
+                  description: description,
+                ),
+                const SizedBox(height: 14),
+                _SplitHeader(participantCount: members.length),
+                const SizedBox(height: 10),
+                for (final SplitMember member in members) ...<Widget>[
+                  _SplitPersonCard(member: member),
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFD71920),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                      ),
-                      onPressed: () {},
-                      icon: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFFEEF0),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.add, size: 16),
-                      ),
-                      label: const Text(
-                        'TAMBAH TEMAN',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFC70F1B),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (BuildContext context) {
-                              return const ConfirmExpensePage(
-                                merchantName: 'Whole Foods Market',
-                                totalAmount: 142.50,
-                                itemCount: 4,
-                                note: null,
-                                tags: <String>['dinner', 'supplies'],
-                              );
-                            },
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'KIRIM',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
-              ),
+                const SizedBox(height: 20),
+                _PrimaryActionButton(groupName: groupName),
+                const SizedBox(height: 14),
+                const Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _SecondaryActionButton(
+                        icon: Icons.add,
+                        label: 'Tambahkan lainnya',
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: _SecondaryActionButton(
+                        icon: Icons.receipt_long,
+                        label: 'Lihat Semua',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
   }
-}
 
-class _SplitSegmentedControl extends StatelessWidget {
-  const _SplitSegmentedControl({
-    required this.selectedIndex,
-    required this.onChanged,
-  });
+  static String _categoryLabel(String value) {
+    switch (value) {
+      case 'food':
+        return 'Food';
+      case 'transport':
+        return 'Transport';
+      case 'travel':
+        return 'Travel';
+      case 'shopping':
+        return 'Belanja';
+      default:
+        return value.isEmpty ? 'Expense' : value;
+    }
+  }
 
-  final int selectedIndex;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const List<String> labels = <String>['Pembagian', 'Persentase', 'Kustom'];
-
-    return Container(
-      width: double.infinity,
-      height: 38,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE3E5EA),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: <Widget>[
-          for (int index = 0; index < labels.length; index++)
-            Expanded(
-              child: _SegmentButton(
-                label: labels[index],
-                isSelected: selectedIndex == index,
-                onTap: () => onChanged(index),
-              ),
-            ),
-        ],
-      ),
-    );
+  static String _formatDate(DateTime value) {
+    const List<String> months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[value.month - 1]} ${value.day}, ${value.year}';
   }
 }
 
-class _SegmentButton extends StatelessWidget {
-  const _SegmentButton({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
+class _SuccessHeader extends StatelessWidget {
+  const _SuccessHeader();
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+    return const Column(
+      children: <Widget>[
+        CircleAvatar(
+          radius: 31,
+          backgroundColor: SplitCalculationPage._primary,
+          child: Icon(Icons.check, color: Colors.white, size: 34),
         ),
-        child: Text(
-          label,
-          overflow: TextOverflow.ellipsis,
+        SizedBox(height: 9),
+        Text(
+          'Pengeluaran Berhasil Disimpan',
+          textAlign: TextAlign.center,
           style: TextStyle(
-            color: isSelected
-                ? const Color(0xFFD71920)
-                : const Color(0xFF707783),
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
+            color: SplitCalculationPage._ink,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
           ),
         ),
-      ),
+        SizedBox(height: 3),
+        Text(
+          'Berhasil ditambahkan ke grup',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: SplitCalculationPage._muted,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _MemberListCard extends StatelessWidget {
-  const _MemberListCard({required this.members, required this.selectedSegment});
+class _ExpenseSummaryCard extends StatelessWidget {
+  const _ExpenseSummaryCard({
+    required this.category,
+    required this.amount,
+    required this.date,
+    required this.description,
+  });
 
-  final List<SplitMember> members;
-  final int selectedSegment;
+  final String category;
+  final double amount;
+  final String date;
+  final String description;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 19),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE8EAEE)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SplitCalculationPage._border),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
+            blurRadius: 16,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         children: <Widget>[
-          if (members.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(18),
-              child: Text(
-                'Belum ada teman',
-                style: TextStyle(
-                  color: Color(0xFF6B7280),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _CategoryPill(label: category),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  Text(
+                    _formatCurrency(amount),
+                    style: const TextStyle(
+                      color: SplitCalculationPage._primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    date,
+                    style: const TextStyle(
+                      color: SplitCalculationPage._muted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
-            )
-          else
-            for (int index = 0; index < members.length; index++) ...<Widget>[
-              _MemberRow(
-                member: members[index],
-                selectedSegment: selectedSegment,
-                percentage: _displayPercentageFor(index),
-              ),
-              if (index != members.length - 1)
-                const Divider(height: 1, color: Color(0xFFE8EAEE)),
             ],
+          ),
+          const SizedBox(height: 11),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: SplitCalculationPage._ink,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
-
-  int _displayPercentageFor(int index) {
-    if (index == 0) {
-      return 50;
-    }
-
-    return 30;
-  }
 }
 
-class _MemberRow extends StatelessWidget {
-  const _MemberRow({
-    required this.member,
-    required this.selectedSegment,
-    required this.percentage,
-  });
+class _CategoryPill extends StatelessWidget {
+  const _CategoryPill({required this.label});
 
-  final SplitMember member;
-  final int selectedSegment;
-  final int percentage;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9E9FB),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Icon(
+            Icons.restaurant,
+            color: SplitCalculationPage._primary,
+            size: 13,
+          ),
+          const SizedBox(width: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              color: SplitCalculationPage._primary,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SplitHeader extends StatelessWidget {
+  const _SplitHeader({required this.participantCount});
+
+  final int participantCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        const Text(
+          'RINCIAN PEMBAGIAN',
+          style: TextStyle(
+            color: Color(0xFF928989),
+            fontSize: 13,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          '$participantCount Orang',
+          style: const TextStyle(color: Color(0xFF5F5353), fontSize: 13),
+        ),
+      ],
+    );
+  }
+}
+
+class _SplitPersonCard extends StatelessWidget {
+  const _SplitPersonCard({required this.member});
+
+  final SplitMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isCurrentUser = member.name.toLowerCase() == 'you';
+    final String displayName = isCurrentUser ? 'Alex M.' : member.name;
+    final String subtitle = isCurrentUser
+        ? 'Kamu membayar ini'
+        : 'Berutang kepada Anda';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SplitCalculationPage._border),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
       child: Row(
         children: <Widget>[
           CircleAvatar(
             radius: 20,
-            backgroundColor: const Color(0xFFFFE7E8),
+            backgroundColor: isCurrentUser
+                ? SplitCalculationPage._primary
+                : const Color(0xFF21424A),
             child: Text(
               member.avatarText,
               style: const TextStyle(
-                color: Color(0xFFD71920),
-                fontSize: 13,
+                color: Colors.white,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              member.name,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF111827),
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: SplitCalculationPage._ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: SplitCalculationPage._muted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
-          if (selectedSegment == 1) ...<Widget>[
-            const SizedBox(width: 10),
-            _PercentageBox(percentage: percentage),
-            const SizedBox(width: 16),
-          ],
+          const SizedBox(width: 10),
           Text(
             _formatCurrency(member.amount),
             style: TextStyle(
-              color: member.name.toLowerCase() == 'you'
-                  ? const Color(0xFFD71920)
-                  : const Color(0xFF111827),
+              color: isCurrentUser
+                  ? SplitCalculationPage._ink
+                  : SplitCalculationPage._primary,
               fontSize: 13,
               fontWeight: FontWeight.w800,
             ),
           ),
-          if (selectedSegment == 2) ...<Widget>[
-            const SizedBox(width: 16),
-            IconButton(
-              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              onPressed: () {},
-              icon: const Icon(
-                Icons.edit_outlined,
-                size: 17,
-                color: Color(0xFF4B5563),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 }
 
-class _PercentageBox extends StatelessWidget {
-  const _PercentageBox({required this.percentage});
+class _PrimaryActionButton extends StatelessWidget {
+  const _PrimaryActionButton({required this.groupName});
 
-  final int percentage;
+  final String groupName;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 66,
-      height: 30,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F2F7),
-        borderRadius: BorderRadius.circular(6),
+    return SizedBox(
+      width: double.infinity,
+      height: 44,
+      child: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          backgroundColor: SplitCalculationPage._primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
+        onPressed: () => Navigator.of(
+          context,
+        ).popUntil((Route<dynamic> route) => route.isFirst),
+        icon: const Icon(Icons.groups, size: 18),
+        label: Text(
+          'Kembali ke ${groupName.isEmpty ? 'Grup' : 'Grup'}',
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            '$percentage',
-            style: const TextStyle(
-              color: Color(0xFF475067),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
+    );
+  }
+}
+
+class _SecondaryActionButton extends StatelessWidget {
+  const _SecondaryActionButton({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: SplitCalculationPage._primary,
+          side: const BorderSide(color: Color(0xFFE6B5B5)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(19),
           ),
-          const SizedBox(width: 7),
-          const Text(
-            '%',
-            style: TextStyle(
-              color: Color(0xFF8A92A3),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+        onPressed: () {},
+        icon: Icon(icon, size: 16),
+        label: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12),
+        ),
       ),
     );
   }
 }
 
 String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
+ 
+  final String whole = value.toStringAsFixed(0);
   final StringBuffer buffer = StringBuffer();
 
   for (int i = 0; i < whole.length; i++) {
     final int reverseIndex = whole.length - i;
     buffer.write(whole[i]);
+
     if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
+      buffer.write('.');
     }
   }
 
-  return '\$${buffer.toString()}.${parts.last}';
+  return 'Rp ${buffer.toString()}';
 }
