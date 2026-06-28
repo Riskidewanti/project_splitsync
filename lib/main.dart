@@ -2,12 +2,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'add_friends_page.dart';
 import 'authentication/auth_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'features/ocr/presentation/pages/scan_page.dart';
 import 'features/settlements/presentation/pages/settlement_debt_list_page.dart';
 import 'firebase_options.dart';
+import 'friends_list_page.dart';
 import 'reports/reports_page.dart';
 import 'screens/authentication/add_pin_option_page.dart';
 import 'screens/authentication/auth_page.dart';
@@ -82,6 +84,8 @@ class SplitSyncApp extends StatelessWidget {
         '/scan': (_) => const ScanPage(),
         '/reports': (_) => const ReportsPage(),
         '/settlements': (_) => const SettlementDebtListPage(),
+        '/friends/add': (_) => const AddFriendsPage(),
+        '/friends': (_) => const FriendsListPage(),
       },
     );
   }
