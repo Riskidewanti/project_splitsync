@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'authentication/auth_service.dart';
 import 'core/services/fcm_service.dart';
@@ -13,12 +14,18 @@ import 'screens/authentication/pin_created_page.dart';
 import 'screens/authentication/splash_screen.dart';
 import 'screens/authentication/welcome_page.dart';
 import 'screens/home/home_page.dart';
+import 'reports/reports_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  await Supabase.initialize(
+    url: 'https://mkdacnbbvjgekosdhevw.supabase.co',
+    publishableKey: 'sb_publishable_dpm-U61n41ih8DM8vGyNhQ_fMSyt5WL',
   );
 
   await AuthService.initialize();
@@ -72,6 +79,7 @@ class SplitSyncApp extends StatelessWidget {
         '/pin-created': (_) => const PinCreatedPage(),
         '/home': (_) => const HomePage(),
         '/scan': (_) => const ScanPage(),
+        '/reports': (_) => const ReportsPage(),
       },
     );
   }
