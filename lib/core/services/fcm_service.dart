@@ -21,12 +21,17 @@ class FcmService {
 
   static final FcmService instance = FcmService._();
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<RemoteMessage>? _onMessageSubscription;
   StreamSubscription<RemoteMessage>? _onMessageOpenedAppSubscription;
 
   Future<void> initialize() async {
+    if (kIsWeb) {
+      debugPrint('Skipping FCM initialization on Web.');
+      return;
+    }
+
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     await _requestPermission();

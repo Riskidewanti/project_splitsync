@@ -707,12 +707,21 @@ class _AddExpensePageState extends State<AddExpensePage> {
       context,
       MaterialPageRoute<void>(
         builder: (BuildContext context) => SplitCalculationPage(
+          merchantName: _descriptionController.text.trim(),
+          expenseDate: _selectedDate,
+          items: <ReceiptItem>[
+            ReceiptItem(
+              name: _descriptionController.text.trim(),
+              quantity: 1,
+              price: amount,
+            ),
+          ],
+          subtotal: amount,
+          tax: 0,
+          serviceFee: 0,
           totalAmount: amount,
           members: splitMembers,
-          description: _descriptionController.text.trim(),
-          category: _selectedCategory,
-          groupName: widget.groupName,
-          expenseDate: _selectedDate,
+          currentUserId: widget.userId,
         ),
       ),
     );

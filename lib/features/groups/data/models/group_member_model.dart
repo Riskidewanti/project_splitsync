@@ -1,4 +1,4 @@
-﻿import 'package:equatable/equatable.dart';
+import 'package:equatable/equatable.dart';
 
 enum GroupMemberRole {
   owner('owner'),
@@ -30,7 +30,8 @@ enum GroupMemberStatus {
   static GroupMemberStatus fromValue(String value) {
     return GroupMemberStatus.values.firstWhere(
       (GroupMemberStatus status) => status.value == value,
-      orElse: () => throw FormatException('Unknown group member status: $value'),
+      orElse: () =>
+          throw FormatException('Unknown group member status: $value'),
     );
   }
 }
@@ -40,6 +41,11 @@ class GroupMemberModel extends Equatable {
     required this.id,
     required this.groupId,
     required this.userId,
+
+    this.displayName,
+    this.email,
+    this.avatarUrl,
+
     required this.role,
     required this.status,
     required this.createdAt,
@@ -52,6 +58,11 @@ class GroupMemberModel extends Equatable {
   final String id;
   final String groupId;
   final String userId;
+
+  final String? displayName;
+  final String? email;
+  final String? avatarUrl;
+
   final String? invitedBy;
   final GroupMemberRole role;
   final GroupMemberStatus status;
@@ -61,14 +72,21 @@ class GroupMemberModel extends Equatable {
   final DateTime updatedAt;
 
   factory GroupMemberModel.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic>? profile = json['profiles'] is Map
+        ? Map<String, dynamic>.from(json['profiles'] as Map)
+        : null;
+
     return GroupMemberModel(
       id: _requiredString(json['id'], 'id'),
       groupId: _requiredString(json['group_id'], 'group_id'),
       userId: _requiredString(json['user_id'], 'user_id'),
+
+      displayName: profile?['display_name'] as String?,
+      email: profile?['email'] as String?,
+      avatarUrl: profile?['avatar_url'] as String?,
+
       invitedBy: json['invited_by'] as String?,
-      role: GroupMemberRole.fromValue(
-        _requiredString(json['role'], 'role'),
-      ),
+      role: GroupMemberRole.fromValue(_requiredString(json['role'], 'role')),
       status: GroupMemberStatus.fromValue(
         _requiredString(json['status'], 'status'),
       ),
@@ -84,6 +102,9 @@ class GroupMemberModel extends Equatable {
       'id': id,
       'group_id': groupId,
       'user_id': userId,
+      'display_name': displayName,
+      'email': email,
+      'avatar_url': avatarUrl,
       'invited_by': invitedBy,
       'role': role.value,
       'status': status.value,
@@ -99,6 +120,9 @@ class GroupMemberModel extends Equatable {
     String? groupId,
     String? userId,
     Object? invitedBy = _sentinel,
+    Object? displayName = _sentinel,
+    Object? email = _sentinel,
+    Object? avatarUrl = _sentinel,
     GroupMemberRole? role,
     GroupMemberStatus? status,
     Object? joinedAt = _sentinel,
@@ -110,6 +134,13 @@ class GroupMemberModel extends Equatable {
       id: id ?? this.id,
       groupId: groupId ?? this.groupId,
       userId: userId ?? this.userId,
+      displayName: identical(displayName, _sentinel)
+          ? this.displayName
+          : displayName as String?,
+      email: identical(email, _sentinel) ? this.email : email as String?,
+      avatarUrl: identical(avatarUrl, _sentinel)
+          ? this.avatarUrl
+          : avatarUrl as String?,
       invitedBy: identical(invitedBy, _sentinel)
           ? this.invitedBy
           : invitedBy as String?,
@@ -126,17 +157,20 @@ class GroupMemberModel extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        id,
-        groupId,
-        userId,
-        invitedBy,
-        role,
-        status,
-        joinedAt,
-        leftAt,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    groupId,
+    userId,
+    displayName,
+    email,
+    avatarUrl,
+    invitedBy,
+    role,
+    status,
+    joinedAt,
+    leftAt,
+    createdAt,
+    updatedAt,
+  ];
 }
 
 const Object _sentinel = Object();

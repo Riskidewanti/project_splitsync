@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
 import 'edit_items_page.dart';
-import '../../../split_bill/presentation/pages/review_items_page.dart';
 
 class OCRResultPage extends StatelessWidget {
   const OCRResultPage({
@@ -81,7 +81,11 @@ class OCRResultPage extends StatelessWidget {
                         category: category,
                       ),
                       const Spacer(),
-                      _BottomActions(items: items),
+                      _BottomActions(
+                        merchant: merchant,
+                        date: date,
+                        items: items,
+                      ),
                     ],
                   ),
                 ),
@@ -119,7 +123,7 @@ class _TotalCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _formatCurrency(total),
+                  formatRupiah(total),
                   style: const TextStyle(
                     color: Color(0xFF1F2933),
                     fontSize: 36,
@@ -335,8 +339,14 @@ class _CategoryChip extends StatelessWidget {
 }
 
 class _BottomActions extends StatelessWidget {
-  const _BottomActions({required this.items});
+  const _BottomActions({
+    required this.merchant,
+    required this.date,
+    required this.items,
+  });
 
+  final String merchant;
+  final DateTime? date;
   final List<ReceiptItem> items;
 
   @override
@@ -380,8 +390,11 @@ class _BottomActions extends StatelessWidget {
                   context,
                   MaterialPageRoute<void>(
                     builder: (BuildContext context) {
-                      return ReviewItemsPage(
+                      return EditItemsPage(
+                        merchantName: merchant,
+                        expenseDate: date,
                         items: items,
+                        subtotal: _itemsSubtotal(items),
                         tax: 0,
                         serviceFee: 0,
                       );
@@ -433,21 +446,10 @@ class _CardShell extends StatelessWidget {
   }
 }
 
-String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < whole.length; i++) {
-    final int reverseIndex = whole.length - i;
-    buffer.write(whole[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
-    }
-  }
-
-  return '\$${buffer.toString()}.${parts.last}';
+double _itemsSubtotal(List<ReceiptItem> items) {
+  return items.fold<double>(0, (double subtotal, ReceiptItem item) {
+    return subtotal + item.price;
+  });
 }
 
 String _formatDate(DateTime? date) {

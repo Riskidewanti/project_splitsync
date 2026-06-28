@@ -36,6 +36,7 @@ class HomePage extends StatelessWidget {
                         title: 'Grup Teratas',
                         action: 'Lihat Semua',
                         titleSize: responsive.font(26),
+                        onAction: () => Navigator.of(context).pushNamed('/friends'),
                       ),
                       SizedBox(height: responsive.space(22)),
                       const _TopGroups(),
@@ -241,6 +242,7 @@ class _QuickActions extends StatelessWidget {
               width: itemWidth,
               icon: Icons.payments_outlined,
               label: 'Lunasi\nTagihan',
+              onTap: () => Navigator.of(context).pushNamed('/settlements'),
             ),
             _QuickAction(
               width: itemWidth,
@@ -251,6 +253,7 @@ class _QuickActions extends StatelessWidget {
               width: itemWidth,
               icon: Icons.view_agenda_outlined,
               label: 'Split\nBill',
+              onTap: () => Navigator.of(context).pushNamed('/scan'),
             ),
           ],
         );
@@ -266,6 +269,7 @@ class _QuickAction extends StatelessWidget {
     required this.width,
     this.iconBg = const Color(0xFFDCEBFF),
     this.iconColor = const Color(0xFF0D213A),
+    this.onTap,
   });
 
   final IconData icon;
@@ -273,59 +277,64 @@ class _QuickAction extends StatelessWidget {
   final double width;
   final Color iconBg;
   final Color iconColor;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final responsive = Responsive.of(context);
     return SizedBox(
       width: width,
-      child: Container(
-        height: responsive.clamp(124, 116, 128),
-        padding: EdgeInsets.symmetric(
-          horizontal: responsive.space(7),
-          vertical: responsive.space(13),
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE0E0E0)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x10000000),
-              blurRadius: 8,
-              offset: Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            CircleAvatar(
-              radius: responsive.clamp(23, 20, 24),
-              backgroundColor: iconBg,
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: responsive.clamp(27, 23, 28),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          height: responsive.clamp(124, 116, 128),
+          padding: EdgeInsets.symmetric(
+            horizontal: responsive.space(7),
+            vertical: responsive.space(13),
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE0E0E0)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x10000000),
+                blurRadius: 8,
+                offset: Offset(0, 6),
               ),
-            ),
-            SizedBox(height: responsive.space(8)),
-            Expanded(
-              child: Center(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: const Color(0xFF0D213A),
-                    fontSize: responsive.font(13),
-                    fontWeight: FontWeight.w900,
-                    height: 1.18,
+            ],
+          ),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: responsive.clamp(23, 20, 24),
+                backgroundColor: iconBg,
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: responsive.clamp(27, 23, 28),
+                ),
+              ),
+              SizedBox(height: responsive.space(8)),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF0D213A),
+                      fontSize: responsive.font(13),
+                      fontWeight: FontWeight.w900,
+                      height: 1.18,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -337,11 +346,13 @@ class _SectionTitle extends StatelessWidget {
     required this.title,
     required this.action,
     required this.titleSize,
+    this.onAction,
   });
 
   final String title;
   final String action;
   final double titleSize;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -357,12 +368,15 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        Text(
-          action,
-          style: TextStyle(
-            color: const Color(0xFF9A0010),
-            fontSize: responsive.font(16),
-            fontWeight: FontWeight.w800,
+        GestureDetector(
+          onTap: onAction,
+          child: Text(
+            action,
+            style: TextStyle(
+              color: const Color(0xFF9A0010),
+              fontSize: responsive.font(16),
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],
@@ -705,7 +719,11 @@ class _BottomNav extends StatelessWidget {
                 size: responsive.clamp(42, 34, 44),
               ),
             ),
-            const _NavItem(icon: Icons.analytics_outlined, label: 'Laporan'),
+            _NavItem(
+              icon: Icons.analytics_outlined,
+              label: 'Laporan',
+              onTap: () => Navigator.of(context).pushNamed('/reports'),
+            ),
             _NavItem(
               icon: Icons.person_outline_rounded,
               label: 'Profil',

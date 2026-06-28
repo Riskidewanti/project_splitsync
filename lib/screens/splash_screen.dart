@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../authentication/auth_service.dart';
@@ -33,7 +34,13 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _continue() async {
     await Future<void>.delayed(const Duration(milliseconds: 2300));
-    final profile = await AuthService.currentSession();
+    SessionProfile? profile;
+    try {
+      profile = await AuthService.currentSession();
+    } catch (e, stackTrace) {
+      debugPrint('Splash session check failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
     if (!mounted) return;
     final nextPage = profile == null
         ? const WelcomePage()

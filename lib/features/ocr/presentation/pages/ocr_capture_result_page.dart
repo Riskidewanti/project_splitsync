@@ -3,6 +3,8 @@ import 'dart:ui' show PathMetric, PathMetrics;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/env.dart';
+import '../../../../core/services/gemini_receipt_service.dart';
 import '../../data/datasources/ocr_service.dart';
 import '../../data/utils/receipt_parser.dart';
 import 'edit_items_page.dart';
@@ -20,6 +22,9 @@ class OCRCaptureResultPage extends StatefulWidget {
 class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
   final OCRService _ocrService = const OCRService();
   final ReceiptParser _receiptParser = const ReceiptParser();
+  final GeminiReceiptService _geminiService = GeminiReceiptService(
+    apiKey: Env.geminiApiKey,
+  );
   bool _isRunningOCR = false;
 
   Future<void> _handleFinish() async {
@@ -35,9 +40,22 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       final String extractedText = await _ocrService.extractText(
         widget.imagePath,
       );
-      final Map<String, dynamic> parsedResult = _receiptParser.parse(
-        extractedText,
-      );
+      print('===== OCR RAW TEXT =====');
+      print(extractedText);
+      print('========================');
+      late final Map<String, dynamic> parsedResult;
+      try {
+        debugPrint(
+          'Gemini API key configured: ${Env.geminiApiKey.isNotEmpty}',
+        );
+        parsedResult = await _geminiService.parseReceipt(extractedText);
+      } catch (error) {
+        print('Gemini receipt parsing failed: $error');
+        parsedResult = _receiptParser.parse(extractedText);
+      }
+      print('===== OCR PARSED RESULT =====');
+      print(parsedResult);
+      print('=============================');
       final String merchant = _parsedMerchant(parsedResult['merchant']);
       final double total = _parsedTotal(parsedResult['total']);
       final List<ReceiptItem> items = _parsedItems(parsedResult['items']);

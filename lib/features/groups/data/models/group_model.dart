@@ -1,4 +1,4 @@
-﻿import 'package:equatable/equatable.dart';
+import 'package:equatable/equatable.dart';
 
 class GroupModel extends Equatable {
   const GroupModel({
@@ -8,12 +8,14 @@ class GroupModel extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.description,
+    this.photoUrl,
     this.archivedAt,
   });
 
   final String id;
   final String name;
   final String? description;
+  final String? photoUrl;
   final String createdBy;
   final DateTime? archivedAt;
   final DateTime createdAt;
@@ -24,6 +26,7 @@ class GroupModel extends Equatable {
       id: _requiredString(json['id'], 'id'),
       name: _requiredString(json['name'], 'name'),
       description: json['description'] as String?,
+      photoUrl: json['photo_url'] as String?,
       createdBy: _requiredString(json['created_by'], 'created_by'),
       archivedAt: _nullableDateTime(json['archived_at']),
       createdAt: _requiredDateTime(json['created_at'], 'created_at'),
@@ -36,6 +39,7 @@ class GroupModel extends Equatable {
       'id': id,
       'name': name,
       'description': description,
+      'photo_url': photoUrl,
       'created_by': createdBy,
       'archived_at': archivedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
@@ -47,6 +51,7 @@ class GroupModel extends Equatable {
     String? id,
     String? name,
     Object? description = _sentinel,
+    Object? photoUrl = _sentinel,
     String? createdBy,
     Object? archivedAt = _sentinel,
     DateTime? createdAt,
@@ -58,6 +63,9 @@ class GroupModel extends Equatable {
       description: identical(description, _sentinel)
           ? this.description
           : description as String?,
+      photoUrl: identical(photoUrl, _sentinel)
+          ? this.photoUrl
+          : photoUrl as String?,
       createdBy: createdBy ?? this.createdBy,
       archivedAt: identical(archivedAt, _sentinel)
           ? this.archivedAt
@@ -69,14 +77,15 @@ class GroupModel extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        id,
-        name,
-        description,
-        createdBy,
-        archivedAt,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    name,
+    description,
+    photoUrl,
+    createdBy,
+    archivedAt,
+    createdAt,
+    updatedAt,
+  ];
 }
 
 const Object _sentinel = Object();

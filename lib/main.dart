@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -22,19 +23,52 @@ import 'screens/home/home_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('Firebase initialized');
+  } catch (e, stackTrace) {
+    debugPrint('Firebase initialization failed: $e');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 
-  await Supabase.initialize(
-    url: 'https://mkdacnbbvjgekosdhevw.supabase.co',
-    publishableKey: 'sb_publishable_dpm-U61n41ih8DM8vGyNhQ_fMSyt5WL',
-  );
+  try {
+    await Supabase.initialize(
+      url: 'https://mkdacnbbvjgekosdhevw.supabase.co',
+      publishableKey: 'sb_publishable_dpm-U61n41ih8DM8vGyNhQ_fMSyt5WL',
+    );
+    debugPrint('Supabase initialized');
+  } catch (e, stackTrace) {
+    debugPrint('Supabase initialization failed: $e');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 
-  await AuthService.initialize();
-  await LocalNotificationService.instance.initialize();
-  await FcmService.instance.initialize();
+  try {
+    await AuthService.initialize();
+    debugPrint('Auth initialized');
+  } catch (e, stackTrace) {
+    debugPrint('Auth initialization failed: $e');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 
+  try {
+    await FcmService.instance.initialize();
+    debugPrint(kIsWeb ? 'FCM initialized (skipped on Web)' : 'FCM initialized');
+  } catch (e, stackTrace) {
+    debugPrint('FCM initialization failed: $e');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+
+  try {
+    await LocalNotificationService.instance.initialize();
+    debugPrint('Local notifications initialized');
+  } catch (e, stackTrace) {
+    debugPrint('Local notifications initialization failed: $e');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+
+  debugPrint('Starting app');
   runApp(const SplitSyncApp());
 }
 
