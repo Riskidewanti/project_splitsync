@@ -58,10 +58,17 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       print('=============================');
       final String merchant = _parsedMerchant(parsedResult['merchant']);
       final double total = _parsedTotal(parsedResult['total']);
+      final Object? parsedItemsValue = parsedResult['items'];
+      debugPrint(
+        'OCRCaptureResultPage parsedResult[items] '
+        'type=${parsedItemsValue.runtimeType} '
+        'length=${parsedItemsValue is List ? parsedItemsValue.length : 'not-list'}',
+      );
       final List<ReceiptItem> items = _parsedItems(parsedResult['items']);
 
       debugPrint('Raw OCR text:\n$extractedText');
       debugPrint('Parsed receipt result: $parsedResult');
+      debugPrint('OCRCaptureResultPage ReceiptItem length=${items.length}');
       debugPrint('Parsed receipt items: $items');
 
       if (!mounted) {
@@ -78,6 +85,9 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
         context,
         MaterialPageRoute<void>(
           builder: (BuildContext context) {
+            debugPrint(
+              'OCRCaptureResultPage -> OCRResultPage items length=${items.length}',
+            );
             return OCRResultPage(
               merchant: merchant,
               total: total,
@@ -131,25 +141,98 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
 
   List<ReceiptItem> _parsedItems(Object? value) {
     if (value is! List) {
+      debugPrint(
+        'OCRCaptureResultPage _parsedItems received ${value.runtimeType}; returning 0 items',
+      );
       return const <ReceiptItem>[];
     }
 
-    return value
-        .whereType<Map>()
-        .map((Map<dynamic, dynamic> item) {
-          final Object? nameValue = item['name'];
-          final Object? priceValue = item['price'];
-          final String name = nameValue is String ? nameValue.trim() : '';
-          final double price = _parsedTotal(priceValue);
+    double parseAmount(Object? amount) {
+      if (amount is int) {
+        return amount.toDouble();
+      }
+      if (amount is double) {
+        return amount;
+      }
+      if (amount is num) {
+        return amount.toDouble();
+      }
+      if (amount is String) {
+        final String text = amount
+            .trim()
+            .replaceAll(RegExp(r'[^0-9,.-]'), '')
+            .replaceAll(RegExp(r'^-+'), '');
+        if (text.isEmpty) {
+          return 0;
+        }
 
-          if (name.isEmpty || price <= 0) {
-            return null;
-          }
+        final bool hasThousandsGrouping = RegExp(
+          r'^\d{1,3}([.,]\d{3})+(?:[.,]\d{2})?$',
+        ).hasMatch(text);
+        if (hasThousandsGrouping) {
+          return double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        }
 
-          return ReceiptItem(name: name, quantity: 1, price: price);
-        })
-        .whereType<ReceiptItem>()
-        .toList();
+        final double? parsed = double.tryParse(text.replaceAll(',', '.'));
+        if (parsed != null) {
+          return parsed;
+        }
+
+        return double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      }
+
+      return 0;
+    }
+
+    int parseQuantity(Object? quantity) {
+      if (quantity is int && quantity > 0) {
+        return quantity;
+      }
+      if (quantity is num && quantity > 0) {
+        return quantity.round();
+      }
+      if (quantity is String) {
+        final int? parsed = int.tryParse(quantity.trim());
+        if (parsed != null && parsed > 0) {
+          return parsed;
+        }
+      }
+
+      return 1;
+    }
+
+    final List<ReceiptItem> receiptItems = <ReceiptItem>[];
+    for (final Object? rawItem in value) {
+      if (rawItem is! Map) {
+        debugPrint(
+          'OCRCaptureResultPage _parsedItems skipped ${rawItem.runtimeType}',
+        );
+        continue;
+      }
+
+      final Object? nameValue = rawItem['name'] ?? rawItem['item_name'];
+      final Object? priceValue = rawItem['price'] ?? rawItem['total'];
+      final String name = nameValue?.toString().trim() ?? '';
+      final double price = parseAmount(priceValue);
+      final int quantity = parseQuantity(rawItem['quantity']);
+
+      if (name.isEmpty || price <= 0) {
+        debugPrint(
+          'OCRCaptureResultPage _parsedItems skipped item name="$name" price=$price raw=$rawItem',
+        );
+        continue;
+      }
+
+      receiptItems.add(
+        ReceiptItem(name: name, quantity: quantity, price: price),
+      );
+    }
+
+    debugPrint(
+      'OCRCaptureResultPage _parsedItems input length=${value.length}, '
+      'output ReceiptItem length=${receiptItems.length}',
+    );
+    return receiptItems;
   }
 
   @override

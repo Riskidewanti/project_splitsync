@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../screens/profile_setting/profile_settings_page.dart';
+
 class ExpenseReport {
   const ExpenseReport({
     required this.id,
@@ -1006,6 +1008,7 @@ class _ReportsErrorState extends StatelessWidget {
   }
 }
 
+
 class _ReportsBottomNav extends StatelessWidget {
   const _ReportsBottomNav();
 
@@ -1036,11 +1039,19 @@ class _ReportsBottomNav extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _BottomNavItem(icon: Icons.home_rounded, label: 'Home'),
-              _BottomNavItem(icon: Icons.groups_rounded, label: 'Groups'),
-              SizedBox(width: 74),
+            children: [
               _BottomNavItem(
+                icon: Icons.home_rounded,
+                label: 'Home',
+                onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
+              ),
+              _BottomNavItem(
+                icon: Icons.groups_rounded,
+                label: 'Groups',
+                onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+              ),
+              const SizedBox(width: 74),
+              const _BottomNavItem(
                 icon: Icons.insert_chart_rounded,
                 label: 'Reports',
                 active: true,
@@ -1048,6 +1059,9 @@ class _ReportsBottomNav extends StatelessWidget {
               _BottomNavItem(
                 icon: Icons.person_outline_rounded,
                 label: 'Profile',
+                onTap: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const ProfileSettingsPage()),
+                ),
               ),
             ],
           ),
@@ -1085,46 +1099,51 @@ class _BottomNavItem extends StatelessWidget {
     required this.icon,
     required this.label,
     this.active = false,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool active;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final responsive = _ReportsResponsive.of(context);
     final color = active ? const Color(0xFFC8152B) : const Color(0xFF6C6968);
-    return Container(
-      width: responsive.clamp(70, 58, 76),
-      padding: EdgeInsets.symmetric(vertical: responsive.clamp(7, 6, 8)),
-      decoration: active
-          ? BoxDecoration(
-              color: const Color(0xFFFFD8D8),
-              borderRadius: BorderRadius.circular(18),
-            )
-          : null,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: responsive.clamp(25, 22, 27)),
-          SizedBox(height: responsive.space(3)),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontSize: responsive.font(12),
-              fontWeight: FontWeight.w800,
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        width: responsive.clamp(70, 58, 76),
+        padding: EdgeInsets.symmetric(vertical: responsive.clamp(7, 6, 8)),
+        decoration: active
+            ? BoxDecoration(
+                color: const Color(0xFFFFD8D8),
+                borderRadius: BorderRadius.circular(18),
+              )
+            : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: responsive.clamp(25, 22, 27)),
+            SizedBox(height: responsive.space(3)),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: responsive.font(12),
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
-
 String _formatRupiah(num value) {
   final rounded = value.round().abs().toString();
   final buffer = StringBuffer();

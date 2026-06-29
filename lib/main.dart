@@ -8,6 +8,7 @@ import 'authentication/auth_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/local_notification_service.dart';
 import 'features/ocr/presentation/pages/scan_page.dart';
+import 'features/groups/presentation/pages/group_home_page.dart';
 import 'features/settlements/presentation/pages/settlement_debt_list_page.dart';
 import 'firebase_options.dart';
 import 'friends_list_page.dart';
@@ -116,6 +117,7 @@ class SplitSyncApp extends StatelessWidget {
         '/pin-created': (_) => const PinCreatedPage(),
         '/home': (_) => const HomePage(),
         '/scan': (_) => const ScanPage(),
+        '/groups': (_) => const GroupHomePage(),
         '/reports': (_) => const ReportsPage(),
         '/settlements': (_) => const SettlementDebtListPage(),
         '/friends/add': (_) => const AddFriendsPage(),

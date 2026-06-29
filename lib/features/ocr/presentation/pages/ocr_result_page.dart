@@ -21,6 +21,8 @@ class OCRResultPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('OCRResultPage received items length=${items.length}');
+
     return Scaffold(
       backgroundColor: const Color(0xFFFBF7F4),
       appBar: AppBar(
@@ -386,6 +388,9 @@ class _BottomActions extends StatelessWidget {
                 ),
               ),
               onPressed: () {
+                debugPrint(
+                  'OCRResultPage -> EditItemsPage items length=${items.length}',
+                );
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(

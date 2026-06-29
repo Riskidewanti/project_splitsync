@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/models/group_member_model.dart';
@@ -8,6 +8,7 @@ import 'create_group_page.dart';
 import 'group_detail_page.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../widgets/group_card.dart';
+import '../../../../screens/profile_setting/profile_settings_page.dart';
 
 class GroupHomePage extends StatefulWidget {
   const GroupHomePage({super.key});
@@ -349,6 +350,7 @@ class _GroupSectionHeader extends StatelessWidget {
   }
 }
 
+
 class _SplitSyncBottomNavigation extends StatelessWidget {
   const _SplitSyncBottomNavigation({required this.onCreateGroup});
 
@@ -373,15 +375,29 @@ class _SplitSyncBottomNavigation extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
-          const _BottomNavigationItem(icon: Icons.home, label: 'Beranda'),
+          _BottomNavigationItem(
+            icon: Icons.home,
+            label: 'Beranda',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
+          ),
           const _BottomNavigationItem(
             icon: Icons.groups_outlined,
             label: 'Grup',
             isActive: true,
           ),
           _CenterCreateButton(onCreateGroup: onCreateGroup),
-          const _BottomNavigationItem(icon: Icons.bar_chart, label: 'Laporan'),
-          const _BottomNavigationItem(icon: Icons.person_outline, label: 'Profil'),
+          _BottomNavigationItem(
+            icon: Icons.bar_chart,
+            label: 'Laporan',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+          ),
+          _BottomNavigationItem(
+            icon: Icons.person_outline,
+            label: 'Profil',
+            onTap: () => Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const ProfileSettingsPage()),
+            ),
+          ),
         ],
       ),
     );
@@ -393,11 +409,13 @@ class _BottomNavigationItem extends StatelessWidget {
     required this.icon,
     required this.label,
     this.isActive = false,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool isActive;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -405,29 +423,33 @@ class _BottomNavigationItem extends StatelessWidget {
         ? const Color(0xFFC70F1B)
         : const Color(0xFF6D6D6D);
 
-    return Container(
-      width: 54,
-      height: 50,
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFFFFD7D7) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        width: 54,
+        height: 50,
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFFFD7D7) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -462,7 +484,6 @@ class _CenterCreateButton extends StatelessWidget {
     );
   }
 }
-
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
 

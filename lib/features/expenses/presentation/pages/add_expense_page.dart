@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:splitsync/features/expenses/data/datasources/supabase_expense_datasource.dart';
 import 'package:splitsync/features/expenses/presentation/pages/split_calculation_page.dart';
+import 'package:splitsync/features/ocr/presentation/pages/edit_items_page.dart';
 
 class Member {
   Member({
@@ -693,10 +694,16 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
     final double splitAmount = amount / (selectedMembers.length + 1);
     final List<SplitMember> splitMembers = <SplitMember>[
-      SplitMember(name: 'You', avatarText: 'Y', amount: splitAmount),
+      SplitMember(
+        userId: widget.userId,
+        displayName: 'You',
+        avatarText: 'Y',
+        amount: splitAmount,
+      ),
       ...selectedMembers.map(
         (Member member) => SplitMember(
-          name: member.name,
+          userId: member.id,
+          displayName: member.name,
           avatarText: member.name.characters.first.toUpperCase(),
           amount: splitAmount,
         ),

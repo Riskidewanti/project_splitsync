@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'authentication/auth_service.dart';
+
 class FriendProfile {
   const FriendProfile({
     required this.id,
@@ -161,8 +163,8 @@ class FriendRequestService {
   }
 
   static Future<String?> _currentProfileIdOrNull() async {
-    final authUser = _client.auth.currentUser;
-    if (authUser != null) return authUser.id;
+    final profile = await AuthService.currentSession();
+    if (profile != null) return profile.id;
 
     try {
       final row = await _client.from('profiles').select('id').limit(1).single();

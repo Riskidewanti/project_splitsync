@@ -965,6 +965,7 @@ class _ThinDivider extends StatelessWidget {
   }
 }
 
+
 class _AccountBottomNav extends StatelessWidget {
   const _AccountBottomNav();
 
@@ -996,12 +997,12 @@ class _AccountBottomNav extends StatelessWidget {
             _AccountBottomItem(
               icon: Icons.home_rounded,
               label: 'Home',
-              onTap: () =>
-                  Navigator.of(context).popUntil((route) => route.isFirst),
+              onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
             ),
-            const _AccountBottomItem(
+            _AccountBottomItem(
               icon: Icons.groups_2_outlined,
               label: 'Groups',
+              onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
             ),
             Container(
               width: responsive.clamp(72, 62, 76),
@@ -1023,9 +1024,10 @@ class _AccountBottomNav extends StatelessWidget {
                 size: responsive.clamp(44, 36, 46),
               ),
             ),
-            const _AccountBottomItem(
+            _AccountBottomItem(
               icon: Icons.analytics_outlined,
               label: 'Reports',
+              onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
             ),
             const _AccountBottomItem(
               icon: Icons.person_outline_rounded,
@@ -1089,7 +1091,6 @@ class _AccountBottomItem extends StatelessWidget {
     );
   }
 }
-
 class _AccountErrorState extends StatelessWidget {
   const _AccountErrorState({required this.message, required this.onBack});
 

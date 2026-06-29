@@ -1,44 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../authentication/auth_service.dart';
 import '../widgets/responsive.dart';
-import 'welcome_page.dart';
+import 'profile_setting/profile_settings_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
-
-  Future<void> _logout(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout'),
-        content: const Text('Keluar dari akun SplitSync sekarang?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFC8152B),
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) return;
-    await AuthService.logout();
-    if (!context.mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const WelcomePage()),
-      (_) => false,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +49,7 @@ class HomePage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: _BottomNav(onLogout: () => _logout(context)),
+      bottomNavigationBar: const _BottomNav(),
     );
   }
 }
@@ -688,9 +654,7 @@ class _ActivityRow extends StatelessWidget {
 }
 
 class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.onLogout});
-
-  final VoidCallback onLogout;
+  const _BottomNav();
 
   @override
   Widget build(BuildContext context) {
@@ -712,7 +676,11 @@ class _BottomNav extends StatelessWidget {
               label: 'Beranda',
               selected: true,
             ),
-            const _NavItem(icon: Icons.groups_2_outlined, label: 'Grup'),
+            _NavItem(
+              icon: Icons.groups_2_outlined,
+              label: 'Grup',
+              onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+            ),
             Container(
               width: responsive.clamp(70, 58, 72),
               height: responsive.clamp(70, 58, 72),
@@ -733,11 +701,17 @@ class _BottomNav extends StatelessWidget {
                 size: responsive.clamp(42, 34, 44),
               ),
             ),
-            const _NavItem(icon: Icons.analytics_outlined, label: 'Laporan'),
+            _NavItem(
+              icon: Icons.analytics_outlined,
+              label: 'Laporan',
+              onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+            ),
             _NavItem(
               icon: Icons.person_outline_rounded,
               label: 'Profil',
-              onTap: onLogout,
+              onTap: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const ProfileSettingsPage()),
+              ),
             ),
           ],
         ),

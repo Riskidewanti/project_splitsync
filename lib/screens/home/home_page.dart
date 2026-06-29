@@ -1,10 +1,206 @@
 import 'package:flutter/material.dart';
 
+import '../../features/expenses/presentation/pages/add_expense_page.dart';
+import '../../features/groups/data/datasources/group_remote_data_source.dart';
+import '../../features/groups/data/models/group_member_model.dart';
+import '../../features/groups/data/models/group_model.dart';
+import '../../features/groups/data/repositories/group_repository_impl.dart';
+import '../../features/groups/presentation/pages/group_detail_page.dart';
+import '../../features/groups/presentation/widgets/group_card.dart';
 import '../../widgets/responsive.dart';
 import '../profile_setting/profile_settings_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final GroupRepositoryImpl _groupRepository = GroupRepositoryImpl(
+    remoteDataSource: GroupRemoteDataSourceImpl(),
+  );
+
+  late Future<List<_HomeGroupData>> _groupsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _groupsFuture = _loadGroups();
+  }
+
+  Future<List<_HomeGroupData>> _loadGroups() async {
+    final List<GroupModel> groups = await _groupRepository.getGroups();
+    return Future.wait(groups.take(2).map(_buildGroupData));
+  }
+
+  Future<_HomeGroupData> _buildGroupData(GroupModel group) async {
+    final List<GroupMemberModel> members = await _groupRepository
+        .getGroupMembers(group.id);
+    return _HomeGroupData(group: group, members: members);
+  }
+
+  void _openGroupDetail(GroupModel group) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GroupDetailPage(groupId: group.id),
+      ),
+    );
+  }
+
+  Future<void> _openAddExpense() async {
+    try {
+      final String? currentUserId = await _groupRepository.getCurrentUserId();
+      if (!mounted) return;
+
+      if (currentUserId == null || currentUserId.trim().isEmpty) {
+        _showHomeMessage('Silakan masuk untuk menambah pengeluaran.');
+        return;
+      }
+
+      final List<GroupModel> groups = await _groupRepository.getGroups();
+      if (!mounted) return;
+
+      if (groups.isEmpty) {
+        _showHomeMessage('Buat grup terlebih dahulu sebelum menambah pengeluaran.');
+        return;
+      }
+
+      final GroupModel? selectedGroup = groups.length == 1
+          ? groups.first
+          : await _selectGroupForExpense(groups);
+      if (selectedGroup == null || !mounted) return;
+
+      final List<GroupMemberModel> groupMembers = await _groupRepository
+          .getGroupMembers(selectedGroup.id);
+      if (!mounted) return;
+
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AddExpensePage(
+            groupId: selectedGroup.id,
+            groupName: selectedGroup.name,
+            userId: currentUserId,
+            members: groupMembers
+                .where((GroupMemberModel member) {
+                  return member.status == GroupMemberStatus.active &&
+                      member.userId != currentUserId;
+                })
+                .map(_expenseMemberFromGroupMember)
+                .toList(),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showHomeMessage('Gagal membuka tambah pengeluaran: $error');
+    }
+  }
+
+  Future<GroupModel?> _selectGroupForExpense(List<GroupModel> groups) {
+    return showModalBottomSheet<GroupModel>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            itemCount: groups.length + 1,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (BuildContext context, int index) {
+              if (index == 0) {
+                return const Padding(
+                  padding: EdgeInsets.only(bottom: 14),
+                  child: Text(
+                    'Pilih Grup',
+                    style: TextStyle(
+                      color: Color(0xFF111B2C),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                );
+              }
+
+              final GroupModel group = groups[index - 1];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.groups_outlined,
+                  color: Color(0xFFC8152B),
+                ),
+                title: Text(
+                  group.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(_subtitleFor(group)),
+                onTap: () => Navigator.of(context).pop(group),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Member _expenseMemberFromGroupMember(GroupMemberModel member) {
+    return Member(
+      id: member.userId,
+      name: _memberName(member),
+      avatarUrl: member.avatarUrl ?? '',
+    );
+  }
+
+  void _showHomeMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _memberName(GroupMemberModel member) {
+    final String? displayName = member.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) return displayName;
+    final String? email = member.email?.trim();
+    if (email != null && email.isNotEmpty) return email;
+    return 'Member ${member.userId.substring(0, 8)}';
+  }
+
+  List<String> _memberInitials(List<GroupMemberModel> members) {
+    final List<String> initials = members
+        .take(3)
+        .map((GroupMemberModel member) {
+          final String name = _memberName(member).trim();
+          return name.isEmpty ? '?' : name.characters.first.toUpperCase();
+        })
+        .toList();
+    return initials.isEmpty ? const <String>['?'] : initials;
+  }
+
+  String _subtitleFor(GroupModel group) {
+    final DateTime createdAt = group.createdAt.toLocal();
+    return 'Dibuat ${createdAt.day}/${createdAt.month}/${createdAt.year}';
+  }
+
+  IconData _iconForGroup(String name) {
+    final String lowerName = name.toLowerCase();
+    if (lowerName.contains('trip') || lowerName.contains('travel')) {
+      return Icons.flight_takeoff;
+    }
+    if (lowerName.contains('home') || lowerName.contains('apartment')) {
+      return Icons.apartment;
+    }
+    if (lowerName.contains('food') || lowerName.contains('dinner')) {
+      return Icons.restaurant;
+    }
+    return Icons.groups_outlined;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,16 +226,22 @@ class HomePage extends StatelessWidget {
                     children: [
                       const _BalanceCard(),
                       SizedBox(height: responsive.space(22)),
-                      const _QuickActions(),
+                      _QuickActions(onAddExpense: _openAddExpense),
                       SizedBox(height: responsive.space(26)),
                       _SectionTitle(
                         title: 'Grup Teratas',
                         action: 'Lihat Semua',
                         titleSize: responsive.font(26),
-                        onAction: () => Navigator.of(context).pushNamed('/friends'),
+                        onAction: () => Navigator.of(context).pushNamed('/groups'),
                       ),
                       SizedBox(height: responsive.space(22)),
-                      const _TopGroups(),
+                      _TopGroups(
+                        groupsFuture: _groupsFuture,
+                        onOpenGroup: _openGroupDetail,
+                        subtitleFor: _subtitleFor,
+                        iconForGroup: _iconForGroup,
+                        memberInitials: _memberInitials,
+                      ),
                       SizedBox(height: responsive.space(26)),
                       const _ActivityPanel(),
                     ],
@@ -52,13 +254,20 @@ class HomePage extends StatelessWidget {
       ),
       bottomNavigationBar: _BottomNav(
         onProfile: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ProfileSettingsPage()),
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(builder: (_) => ProfileSettingsPage()),
           );
         },
       ),
     );
   }
+}
+
+class _HomeGroupData {
+  const _HomeGroupData({required this.group, required this.members});
+
+  final GroupModel group;
+  final List<GroupMemberModel> members;
 }
 
 class _Header extends StatelessWidget {
@@ -218,7 +427,9 @@ class _BalanceMiniCard extends StatelessWidget {
 }
 
 class _QuickActions extends StatelessWidget {
-  const _QuickActions();
+  const _QuickActions({required this.onAddExpense});
+
+  final VoidCallback onAddExpense;
 
   @override
   Widget build(BuildContext context) {
@@ -237,6 +448,7 @@ class _QuickActions extends StatelessWidget {
               label: 'Tambah\nPengeluaran',
               iconBg: const Color(0xFFFFD9DC),
               iconColor: const Color(0xFF9A0010),
+              onTap: onAddExpense,
             ),
             _QuickAction(
               width: itemWidth,
@@ -385,38 +597,65 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _TopGroups extends StatelessWidget {
-  const _TopGroups();
+  const _TopGroups({
+    required this.groupsFuture,
+    required this.onOpenGroup,
+    required this.subtitleFor,
+    required this.iconForGroup,
+    required this.memberInitials,
+  });
+
+  final Future<List<_HomeGroupData>> groupsFuture;
+  final ValueChanged<GroupModel> onOpenGroup;
+  final String Function(GroupModel group) subtitleFor;
+  final IconData Function(String name) iconForGroup;
+  final List<String> Function(List<GroupMemberModel> members) memberInitials;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isTight = constraints.maxWidth < 360;
-        const cards = [
-          _GroupCard(
-            icon: Icons.home_work_outlined,
-            title: "Roomies '24",
-            subtitle: 'Rp 300.000 Belum\ndibayar',
-            chips: ['JC', 'AS', '+2'],
-            highlightSubtitle: true,
-          ),
-          _GroupCard(
-            icon: Icons.flight_takeoff_rounded,
-            title: 'Japan Trip',
-            subtitle: 'Semua Tagihan\nSelesai',
-            chips: ['M', 'TH'],
-          ),
-        ];
-        if (isTight) {
-          return Column(
-            children: [cards[0], const SizedBox(height: 14), cards[1]],
+    return FutureBuilder<List<_HomeGroupData>>(
+      future: groupsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
           );
         }
-        return Row(
+
+        if (snapshot.hasError) {
+          return _HomeGroupsError(message: snapshot.error.toString());
+        }
+
+        final List<_HomeGroupData> groups =
+            snapshot.data ?? const <_HomeGroupData>[];
+        if (groups.isEmpty) {
+          return GroupEmptyState();
+        }
+
+        final List<_HomeGroupData> topGroups = groups.take(2).toList();
+
+        return Column(
           children: [
-            Expanded(child: cards[0]),
-            const SizedBox(width: 20),
-            Expanded(child: cards[1]),
+            for (int index = 0; index < topGroups.length; index++) ...[
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => onOpenGroup(topGroups[index].group),
+                child: GroupCard(
+                  title: topGroups[index].group.name,
+                  subtitle: subtitleFor(topGroups[index].group),
+                  amount: 0,
+                  statusLabel: 'Belum ada saldo',
+                  statusStyle: GroupCardStatusStyle.gray,
+                  icon: iconForGroup(topGroups[index].group.name),
+                  memberInitials: memberInitials(topGroups[index].members),
+                  extraMemberCount: topGroups[index].members.length > 3
+                      ? topGroups[index].members.length - 3
+                      : 0,
+                ),
+              ),
+              if (index != topGroups.length - 1) const SizedBox(height: 10),
+            ],
           ],
         );
       },
@@ -424,93 +663,66 @@ class _TopGroups extends StatelessWidget {
   }
 }
 
-class _GroupCard extends StatelessWidget {
-  const _GroupCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.chips,
-    this.highlightSubtitle = false,
-  });
+class _HomeGroupsError extends StatelessWidget {
+  const _HomeGroupsError({required this.message});
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final List<String> chips;
-  final bool highlightSubtitle;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
     final responsive = Responsive.of(context);
     return Container(
-      height: responsive.clamp(202, 188, 208),
-      padding: EdgeInsets.all(responsive.clamp(20, 16, 20)),
+      width: double.infinity,
+      padding: EdgeInsets.all(responsive.clamp(18, 14, 20)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE4E4E4)),
+      ),
+      child: Text(
+        'Gagal memuat grup: $message',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: const Color(0xFF5E5656),
+          fontSize: responsive.font(13),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class GroupEmptyState extends StatelessWidget {
+  const GroupEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = Responsive.of(context);
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(responsive.clamp(18, 14, 20)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE4E4E4)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          CircleAvatar(
-            radius: responsive.clamp(28, 24, 29),
-            backgroundColor: const Color(0xFFF3E7E7),
-            child: Icon(
-              icon,
-              color: const Color(0xFF9A0010),
-              size: responsive.clamp(30, 25, 31),
-            ),
-          ),
-          SizedBox(height: responsive.space(18)),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: const Color(0xFF111B2C),
-              fontSize: responsive.font(16),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Text(
-            subtitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: highlightSubtitle
-                  ? const Color(0xFF8C0010)
-                  : const Color(0xFF5E5656),
-              fontSize: responsive.font(15),
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
+          Icon(
+            Icons.groups_outlined,
+            color: const Color(0xFFC8152B),
+            size: responsive.clamp(42, 36, 44),
           ),
           SizedBox(height: responsive.space(10)),
-          Row(
-            children: chips
-                .map(
-                  (chip) => Container(
-                    margin: const EdgeInsets.only(right: 4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F3F9),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      chip,
-                      style: const TextStyle(
-                        color: Color(0xFF0D213A),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
+          Text(
+            'Belum ada grup untuk ditampilkan.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: const Color(0xFF5E5656),
+              fontSize: responsive.font(14),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -698,7 +910,11 @@ class _BottomNav extends StatelessWidget {
               label: 'Beranda',
               selected: true,
             ),
-            const _NavItem(icon: Icons.groups_2_outlined, label: 'Grup'),
+            _NavItem(
+              icon: Icons.groups_2_outlined,
+              label: 'Grup',
+              onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+            ),
             Container(
               width: responsive.clamp(70, 58, 72),
               height: responsive.clamp(70, 58, 72),
@@ -722,7 +938,7 @@ class _BottomNav extends StatelessWidget {
             _NavItem(
               icon: Icons.analytics_outlined,
               label: 'Laporan',
-              onTap: () => Navigator.of(context).pushNamed('/reports'),
+              onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
             ),
             _NavItem(
               icon: Icons.person_outline_rounded,

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../authentication/auth_service.dart';
 import '../models/group_expense_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
@@ -57,7 +58,8 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
 
   @override
   Future<String?> getCurrentUserId() async {
-    return _client.auth.currentUser?.id;
+    final SessionProfile? profile = await AuthService.currentSession();
+    return profile?.id;
   }
 
   @override
@@ -67,7 +69,7 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     String? photoUrl,
     List<String> memberUserIds = const <String>[],
   }) async {
-    final String currentUserId = _requireCurrentUserId();
+    final String currentUserId = await _requireCurrentUserId();
     final Set<String> invitedUserIds = memberUserIds
         .where((String userId) => userId != currentUserId)
         .toSet();
@@ -119,7 +121,7 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     required String fileName,
     required String contentType,
   }) async {
-    final String currentUserId = _requireCurrentUserId();
+    final String currentUserId = await _requireCurrentUserId();
     final String sanitizedFileName = fileName.replaceAll(
       RegExp(r'[^A-Za-z0-9._-]'),
       '_',
@@ -144,7 +146,7 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
       return <GroupUserModel>[];
     }
 
-    final String currentUserId = _requireCurrentUserId();
+    final String currentUserId = await _requireCurrentUserId();
     final String escapedQuery = trimmedQuery.replaceAll(',', ' ');
     final List<dynamic> rows = await _client
         .from('profiles')
@@ -160,8 +162,8 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   }
 
   @override
-  Future<List<GroupModel>> getGroups() {
-    return getUserGroups(_requireCurrentUserId());
+  Future<List<GroupModel>> getGroups() async {
+    return getUserGroups(await _requireCurrentUserId());
   }
 
   @override
@@ -303,8 +305,9 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         .eq('id', groupId);
   }
 
-  String _requireCurrentUserId() {
-    final String? userId = _client.auth.currentUser?.id;
+  Future<String> _requireCurrentUserId() async {
+    final SessionProfile? profile = await AuthService.currentSession();
+    final String? userId = profile?.id;
     if (userId == null) {
       throw const AuthException('User must be logged in to create a group.');
     }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../authentication/auth_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../expenses/presentation/pages/split_calculation_page.dart';
 import '../../../groups/data/datasources/group_remote_data_source.dart';
@@ -64,12 +64,16 @@ class _EditItemsPageState extends State<EditItemsPage> {
   @override
   void initState() {
     super.initState();
+    debugPrint(
+      'EditItemsPage widget.items length=${widget.items.length}, '
+      '_items length=${_items.length}',
+    );
     _loadGroupMembers();
   }
 
   Future<void> _loadGroupMembers() async {
-    final User? currentUser = Supabase.instance.client.auth.currentUser;
-    final String? currentUserId = currentUser?.id;
+    final SessionProfile? profile = await AuthService.currentSession();
+    final String? currentUserId = profile?.id;
 
     if (currentUserId == null) {
       if (!mounted) {
@@ -89,6 +93,7 @@ class _EditItemsPageState extends State<EditItemsPage> {
       final List<GroupMemberModel> groupMembers = groupId == null
           ? const <GroupMemberModel>[]
           : await _groupRepository.getGroupMembers(groupId);
+      final SessionProfile currentUser = profile!;
 
       if (!mounted) {
         return;
@@ -96,7 +101,7 @@ class _EditItemsPageState extends State<EditItemsPage> {
 
       setState(() {
         _currentUserId = currentUserId;
-        _members = _buildSplitMembers(groupMembers, currentUser!);
+        _members = _buildSplitMembers(groupMembers, currentUser);
         _isLoadingMembers = false;
       });
     } catch (error) {
@@ -133,7 +138,7 @@ class _EditItemsPageState extends State<EditItemsPage> {
 
   List<SplitMember> _buildSplitMembers(
     List<GroupMemberModel> groupMembers,
-    User currentUser,
+    SessionProfile currentUser,
   ) {
     if (groupMembers.isEmpty) {
       return const <SplitMember>[];
@@ -155,18 +160,13 @@ class _EditItemsPageState extends State<EditItemsPage> {
     }).toList();
   }
 
-  String _currentUserDisplayName(User currentUser) {
-    final Map<String, dynamic>? metadata = currentUser.userMetadata;
-    final Object? metadataName =
-        metadata?['display_name'] ?? metadata?['full_name'] ?? metadata?['name'];
-
-    if (metadataName is String && metadataName.trim().isNotEmpty) {
-      return metadataName.trim();
+  String _currentUserDisplayName(SessionProfile currentUser) {
+    if (currentUser.username.trim().isNotEmpty) {
+      return currentUser.username.trim();
     }
 
-    final String? email = currentUser.email;
-    if (email != null && email.trim().isNotEmpty) {
-      return email.trim();
+    if (currentUser.email.trim().isNotEmpty) {
+      return currentUser.email.trim();
     }
 
     return _fallbackDisplayName(currentUser.id);

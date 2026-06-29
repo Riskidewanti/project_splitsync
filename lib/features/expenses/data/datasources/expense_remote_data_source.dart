@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../authentication/auth_service.dart';
+
 class ExpenseItemDraft {
   const ExpenseItemDraft({
     required this.name,
@@ -31,7 +33,7 @@ class ExpenseRemoteDataSource {
     required double currentUserSplitAmount,
     required double? currentUserPercentage,
   }) async {
-    final String currentUserId = _requireCurrentUserId();
+    final String currentUserId = await _requireCurrentUserId();
 
     final Map<String, dynamic> expenseRow = await _client
         .from('expenses')
@@ -51,7 +53,7 @@ class ExpenseRemoteDataSource {
           'discount_amount': discountAmount,
           'total_amount': totalAmount,
           'split_method': splitMethod,
-          'status': 'pending',
+          'status': 'draft',
         })
         .select('id')
         .single();
@@ -90,8 +92,9 @@ class ExpenseRemoteDataSource {
     return expenseId;
   }
 
-  String _requireCurrentUserId() {
-    final String? userId = _client.auth.currentUser?.id;
+  Future<String> _requireCurrentUserId() async {
+    final SessionProfile? profile = await AuthService.currentSession();
+    final String? userId = profile?.id;
     if (userId == null) {
       throw const AuthException('User must be logged in to save an expense.');
     }

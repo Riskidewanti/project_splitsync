@@ -490,6 +490,7 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
+
 class _ProfileBottomNav extends StatelessWidget {
   const _ProfileBottomNav();
 
@@ -521,9 +522,13 @@ class _ProfileBottomNav extends StatelessWidget {
             _BottomItem(
               icon: Icons.home_rounded,
               label: 'Home',
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
             ),
-            const _BottomItem(icon: Icons.groups_2_outlined, label: 'Groups'),
+            _BottomItem(
+              icon: Icons.groups_2_outlined,
+              label: 'Groups',
+              onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+            ),
             Container(
               width: responsive.clamp(72, 62, 76),
               height: responsive.clamp(72, 62, 76),
@@ -544,7 +549,11 @@ class _ProfileBottomNav extends StatelessWidget {
                 size: responsive.clamp(44, 36, 46),
               ),
             ),
-            const _BottomItem(icon: Icons.analytics_outlined, label: 'Reports'),
+            _BottomItem(
+              icon: Icons.analytics_outlined,
+              label: 'Reports',
+              onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+            ),
             const _BottomItem(
               icon: Icons.person_outline_rounded,
               label: 'Profile',
@@ -607,7 +616,6 @@ class _BottomItem extends StatelessWidget {
     );
   }
 }
-
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.message, required this.onBack});
 
