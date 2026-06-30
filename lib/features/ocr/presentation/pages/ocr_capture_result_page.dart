@@ -40,9 +40,9 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       final String extractedText = await _ocrService.extractText(
         widget.imagePath,
       );
-      print('===== OCR RAW TEXT =====');
-      print(extractedText);
-      print('========================');
+      debugPrint('===== OCR RAW TEXT =====');
+      debugPrint(extractedText);
+      debugPrint('========================');
       late final Map<String, dynamic> parsedResult;
       try {
         debugPrint(
@@ -50,12 +50,12 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
         );
         parsedResult = await _geminiService.parseReceipt(extractedText);
       } catch (error) {
-        print('Gemini receipt parsing failed: $error');
+        debugPrint('Gemini receipt parsing failed: $error');
         parsedResult = _receiptParser.parse(extractedText);
       }
-      print('===== OCR PARSED RESULT =====');
-      print(parsedResult);
-      print('=============================');
+      debugPrint('===== OCR PARSED RESULT =====');
+      debugPrint(parsedResult.toString());
+      debugPrint('=============================');
       final String merchant = _parsedMerchant(parsedResult['merchant']);
       final double total = _parsedTotal(parsedResult['total']);
       final Object? parsedItemsValue = parsedResult['items'];

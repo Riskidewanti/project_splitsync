@@ -111,7 +111,7 @@ class _HomePageState extends State<HomePage> {
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
             itemCount: groups.length + 1,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (BuildContext context, int index) {
               if (index == 0) {
                 return const Padding(
@@ -693,7 +693,7 @@ class _HomeGroupsError extends StatelessWidget {
 }
 
 class GroupEmptyState extends StatelessWidget {
-  const GroupEmptyState();
+  const GroupEmptyState({super.key});
 
   @override
   Widget build(BuildContext context) {

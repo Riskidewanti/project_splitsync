@@ -150,7 +150,6 @@ class _AmountStatus extends StatelessWidget {
       case GroupCardStatusStyle.blue:
         return const Color(0xFF2563EB);
       case GroupCardStatusStyle.gray:
-      default:
         return const Color(0xFF6B4D49);
     }
   }
@@ -172,7 +171,7 @@ class _AmountStatus extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _statusColor().withOpacity(0.12),
+            color: _statusColor().withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
