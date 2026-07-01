@@ -85,10 +85,13 @@ class _Header extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Icon(
-            Icons.notifications_none_rounded,
-            color: const Color(0xFF4B3333),
-            size: responsive.clamp(30, 26, 32),
+          IconButton(
+            onPressed: () => Navigator.of(context).pushNamed('/notifications'),
+            icon: Icon(
+              Icons.notifications_none_rounded,
+              color: const Color(0xFF4B3333),
+              size: responsive.clamp(30, 26, 32),
+            ),
           ),
         ],
       ),
@@ -658,15 +661,11 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
     return SafeArea(
       top: false,
       child: Container(
-        height: responsive.clamp(92, 82, 96),
-        padding: EdgeInsets.symmetric(
-          horizontal: responsive.clamp(22, 12, 24),
-          vertical: responsive.space(8),
-        ),
+        height: 72,
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
         decoration: const BoxDecoration(color: Colors.white),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -679,11 +678,12 @@ class _BottomNav extends StatelessWidget {
             _NavItem(
               icon: Icons.groups_2_outlined,
               label: 'Grup',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+              onTap: () =>
+                  Navigator.of(context).pushReplacementNamed('/groups'),
             ),
             Container(
-              width: responsive.clamp(70, 58, 72),
-              height: responsive.clamp(70, 58, 72),
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 color: const Color(0xFFC8152B),
                 borderRadius: BorderRadius.circular(20),
@@ -695,16 +695,13 @@ class _BottomNav extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                Icons.add,
-                color: Colors.white,
-                size: responsive.clamp(42, 34, 44),
-              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 34),
             ),
             _NavItem(
               icon: Icons.analytics_outlined,
               label: 'Laporan',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+              onTap: () =>
+                  Navigator.of(context).pushReplacementNamed('/reports'),
             ),
             _NavItem(
               icon: Icons.person_outline_rounded,
@@ -735,32 +732,31 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
     final color = selected ? const Color(0xFFC8152B) : const Color(0xFF5A5A5A);
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        width: responsive.clamp(78, 56, 78),
-        height: responsive.clamp(64, 56, 64),
+        width: 54,
+        height: 50,
         decoration: selected
             ? BoxDecoration(
                 color: const Color(0xFFFFDADB),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(12),
               )
             : null,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: responsive.clamp(27, 22, 28), color: color),
-            SizedBox(height: responsive.space(4)),
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 2),
             FittedBox(
               child: Text(
                 label,
                 style: TextStyle(
                   color: color,
-                  fontSize: responsive.font(13),
-                  fontWeight: FontWeight.w800,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

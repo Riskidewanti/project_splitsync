@@ -6,6 +6,7 @@ import '../../data/models/group_expense_model.dart';
 import '../../data/models/group_member_model.dart';
 import '../../data/models/group_model.dart';
 import '../../data/repositories/group_repository_impl.dart';
+import '../../../expenses/presentation/pages/add_expense_page.dart';
 
 class GroupDetailPage extends StatefulWidget {
   const GroupDetailPage({super.key, required this.groupId});
@@ -201,12 +202,57 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
 
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Gagal menghapus anggota: $error')));
+        ..showSnackBar(
+          SnackBar(content: Text('Gagal menghapus anggota: $error')),
+        );
     } finally {
       if (mounted) {
         setState(() => _removingUserId = null);
       }
     }
+  }
+
+  Future<void> _openAddExpense() async {
+    final GroupModel? group = _group;
+    final String? currentUserId = _currentUserId;
+    if (group == null || currentUserId == null || currentUserId.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Data grup belum siap. Coba lagi.')),
+        );
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AddExpensePage(
+          groupId: group.id,
+          groupName: group.name,
+          userId: currentUserId,
+          members: _members
+              .where((GroupMemberModel member) {
+                return member.status == GroupMemberStatus.active &&
+                    member.userId != currentUserId;
+              })
+              .map(_expenseMemberFromGroupMember)
+              .toList(),
+        ),
+      ),
+    );
+
+    if (mounted) {
+      await _loadGroupDetail();
+    }
+  }
+
+  Member _expenseMemberFromGroupMember(GroupMemberModel member) {
+    final String name = _memberName(member);
+    return Member(
+      id: member.userId,
+      name: name,
+      avatarUrl: member.avatarUrl ?? '',
+    );
   }
 
   String _memberName(GroupMemberModel member) {
@@ -291,10 +337,7 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
                   if (_isLoading)
                     const _DetailLoadingState()
                   else if (_error != null)
-                    _DetailErrorState(
-                      error: _error!,
-                      onRetry: _loadGroupDetail,
-                    )
+                    _DetailErrorState(error: _error!, onRetry: _loadGroupDetail)
                   else if (_group == null)
                     const _DetailEmptyState(message: 'Grup tidak ditemukan.')
                   else ...<Widget>[
@@ -340,7 +383,7 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: _openAddExpense,
         elevation: 5,
         backgroundColor: GroupDetailPage.primaryColor,
         foregroundColor: Colors.white,
@@ -698,7 +741,9 @@ class _MemberManagementTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
       decoration: BoxDecoration(
         border: showDivider
-            ? const Border(bottom: BorderSide(color: GroupDetailPage.borderColor))
+            ? const Border(
+                bottom: BorderSide(color: GroupDetailPage.borderColor),
+              )
             : null,
       ),
       child: Row(

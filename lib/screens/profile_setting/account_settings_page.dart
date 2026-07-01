@@ -205,8 +205,6 @@ class _AccountSettingsBody extends StatelessWidget {
                     onEdit: onEdit,
                     onChangePin: onChangePin,
                   ),
-                  SizedBox(height: responsive.space(52)),
-                  const _PreferenceCard(),
                 ],
               ),
             ),
@@ -450,24 +448,6 @@ class _InfoCard extends StatelessWidget {
           icon: Icons.lock_reset_rounded,
           onTap: onChangePin,
         ),
-      ],
-    );
-  }
-}
-
-class _PreferenceCard extends StatelessWidget {
-  const _PreferenceCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'PREFERENSI',
-      children: const [
-        _ThemePreferenceRow(),
-        _ThinDivider(),
-        _ChevronInfoRow(title: 'Bahasa', subtitle: 'English (US)'),
-        _ThinDivider(),
-        _ChevronInfoRow(title: 'Mata Uang', subtitle: 'Rupiah\n(Rp)'),
       ],
     );
   }
@@ -797,161 +777,6 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   }
 }
 
-class _ThemePreferenceRow extends StatelessWidget {
-  const _ThemePreferenceRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: responsive.space(6)),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tampilan Aplikasi',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: const Color(0xFF181818),
-                    fontSize: responsive.font(18),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: responsive.space(7)),
-                Text(
-                  'System Default',
-                  style: TextStyle(
-                    color: const Color(0xFF5D5353),
-                    fontSize: responsive.font(13),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: responsive.space(14)),
-          Container(
-            width: responsive.clamp(112, 102, 118),
-            height: responsive.clamp(42, 38, 44),
-            padding: EdgeInsets.all(responsive.space(5)),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F0F0),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _ModeIcon(
-                  icon: Icons.brightness_6_rounded,
-                  selected: true,
-                  size: responsive.clamp(31, 28, 33),
-                ),
-                _ModeIcon(
-                  icon: Icons.wb_sunny_outlined,
-                  size: responsive.clamp(31, 28, 33),
-                ),
-                _ModeIcon(
-                  icon: Icons.nightlight_round,
-                  size: responsive.clamp(31, 28, 33),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ModeIcon extends StatelessWidget {
-  const _ModeIcon({
-    required this.icon,
-    required this.size,
-    this.selected = false,
-  });
-
-  final IconData icon;
-  final double size;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: selected ? Colors.white : Colors.transparent,
-        shape: BoxShape.circle,
-        boxShadow: selected
-            ? const [
-                BoxShadow(
-                  color: Color(0x11000000),
-                  blurRadius: 5,
-                  offset: Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
-      child: Icon(icon, color: const Color(0xFF2C2C2C), size: size * 0.62),
-    );
-  }
-}
-
-class _ChevronInfoRow extends StatelessWidget {
-  const _ChevronInfoRow({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: responsive.space(6)),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: const Color(0xFF181818),
-                    fontSize: responsive.font(18),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: responsive.space(7)),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: const Color(0xFF4F4B4B),
-                    fontSize: responsive.font(13),
-                    fontWeight: FontWeight.w800,
-                    height: 1.15,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: const Color(0xFF555555),
-            size: responsive.clamp(27, 24, 30),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ThinDivider extends StatelessWidget {
   const _ThinDivider();
 
@@ -965,21 +790,16 @@ class _ThinDivider extends StatelessWidget {
   }
 }
 
-
 class _AccountBottomNav extends StatelessWidget {
   const _AccountBottomNav();
 
   @override
   Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
     return SafeArea(
       top: false,
       child: Container(
-        height: responsive.clamp(96, 86, 100),
-        padding: EdgeInsets.symmetric(
-          horizontal: responsive.clamp(28, 14, 30),
-          vertical: responsive.space(8),
-        ),
+        height: 72,
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -1002,11 +822,12 @@ class _AccountBottomNav extends StatelessWidget {
             _AccountBottomItem(
               icon: Icons.groups_2_outlined,
               label: 'Groups',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+              onTap: () =>
+                  Navigator.of(context).pushReplacementNamed('/groups'),
             ),
             Container(
-              width: responsive.clamp(72, 62, 76),
-              height: responsive.clamp(72, 62, 76),
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 color: const Color(0xFFC8152B),
                 borderRadius: BorderRadius.circular(20),
@@ -1018,16 +839,13 @@ class _AccountBottomNav extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                Icons.add,
-                color: Colors.white,
-                size: responsive.clamp(44, 36, 46),
-              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 34),
             ),
             _AccountBottomItem(
               icon: Icons.analytics_outlined,
               label: 'Reports',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+              onTap: () =>
+                  Navigator.of(context).pushReplacementNamed('/reports'),
             ),
             const _AccountBottomItem(
               icon: Icons.person_outline_rounded,
@@ -1056,32 +874,31 @@ class _AccountBottomItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
     final color = selected ? const Color(0xFFC8152B) : const Color(0xFF5A5A5A);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: responsive.clamp(76, 54, 78),
-        height: responsive.clamp(64, 56, 68),
+        width: 54,
+        height: 50,
         decoration: selected
             ? BoxDecoration(
                 color: const Color(0xFFFFDADB),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(12),
               )
             : null,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: responsive.clamp(28, 23, 30)),
-            SizedBox(height: responsive.space(3)),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 2),
             FittedBox(
               child: Text(
                 label,
                 style: TextStyle(
                   color: color,
-                  fontSize: responsive.font(13),
-                  fontWeight: FontWeight.w800,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -1091,6 +908,7 @@ class _AccountBottomItem extends StatelessWidget {
     );
   }
 }
+
 class _AccountErrorState extends StatelessWidget {
   const _AccountErrorState({required this.message, required this.onBack});
 

@@ -74,16 +74,14 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         .where((String userId) => userId != currentUserId)
         .toSet();
 
-    final Map<String, dynamic> groupRow = await _client
-        .from('groups')
-        .insert(<String, dynamic>{
-          'name': name.trim(),
-          'description': description?.trim(),
-          'photo_url': photoUrl,
-          'created_by': currentUserId,
-        })
-        .select()
-        .single();
+    final Map<String, dynamic> groupPayload = <String, dynamic>{
+      'name': name.trim(),
+      'description': description?.trim(),
+      'photo_url': photoUrl,
+      'created_by': currentUserId,
+    };
+
+    final Map<String, dynamic> groupRow = await _insertGroup(groupPayload);
 
     final GroupModel group = GroupModel.fromJson(groupRow);
 
@@ -98,21 +96,45 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
 
     if (invitedUserIds.isNotEmpty) {
       final String joinedAt = DateTime.now().toUtc().toIso8601String();
-      await _client.from('group_members').insert(
-        invitedUserIds.map((String userId) {
-          return <String, dynamic>{
-            'group_id': group.id,
-            'user_id': userId,
-            'invited_by': currentUserId,
-            'role': GroupMemberRole.member.value,
-            'status': GroupMemberStatus.active.value,
-            'joined_at': joinedAt,
-          };
-        }).toList(),
-      );
+      await _client
+          .from('group_members')
+          .insert(
+            invitedUserIds.map((String userId) {
+              return <String, dynamic>{
+                'group_id': group.id,
+                'user_id': userId,
+                'invited_by': currentUserId,
+                'role': GroupMemberRole.member.value,
+                'status': GroupMemberStatus.active.value,
+                'joined_at': joinedAt,
+              };
+            }).toList(),
+          );
     }
 
     return group;
+  }
+
+  Future<Map<String, dynamic>> _insertGroup(
+    Map<String, dynamic> groupPayload,
+  ) async {
+    try {
+      return await _client
+          .from('groups')
+          .insert(groupPayload)
+          .select()
+          .single();
+    } catch (error) {
+      if (!_isMissingColumn(error, 'photo_url')) {
+        rethrow;
+      }
+
+      final Map<String, dynamic> fallbackPayload = Map<String, dynamic>.from(
+        groupPayload,
+      )..remove('photo_url');
+
+      return _client.from('groups').insert(fallbackPayload).select().single();
+    }
   }
 
   @override
@@ -126,7 +148,8 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
       RegExp(r'[^A-Za-z0-9._-]'),
       '_',
     );
-    final String path = '$currentUserId/${DateTime.now().millisecondsSinceEpoch}_$sanitizedFileName';
+    final String path =
+        '$currentUserId/${DateTime.now().millisecondsSinceEpoch}_$sanitizedFileName';
 
     await _client.storage
         .from(_groupPhotosBucket)
@@ -150,8 +173,8 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     final String escapedQuery = trimmedQuery.replaceAll(',', ' ');
     final List<dynamic> rows = await _client
         .from('profiles')
-        .select('id, display_name, email, avatar_url')
-        .or('display_name.ilike.%$escapedQuery%,email.ilike.%$escapedQuery%')
+        .select('id, user_name, email, avatar_url')
+        .or('user_name.ilike.%$escapedQuery%,email.ilike.%$escapedQuery%')
         .neq('id', currentUserId)
         .limit(12);
 
@@ -217,8 +240,8 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         .from('group_members')
         .select('''
           *,
-          profiles (
-            display_name,
+          profiles!group_members_user_id_fkey (
+            user_name,
             email,
             avatar_url
           )
@@ -313,5 +336,13 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     }
 
     return userId;
+  }
+
+  bool _isMissingColumn(Object error, String columnName) {
+    final String message = error.toString().toLowerCase();
+    return message.contains(columnName.toLowerCase()) &&
+        (message.contains('pgrst204') ||
+            message.contains('could not find') ||
+            message.contains('schema cache'));
   }
 }

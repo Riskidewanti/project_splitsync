@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../ocr/presentation/pages/edit_items_page.dart';
 import 'confirm_expense_page.dart';
+import 'split_bill_group_selection_page.dart';
 
 class SplitBillPage extends StatefulWidget {
   const SplitBillPage({
@@ -41,38 +42,98 @@ class _SplitBillPageState extends State<SplitBillPage> {
   static const Color _surface = Color(0xFFFFFAF7);
   static const Color _line = Color(0xFFE8E8EC);
 
-  final List<_SettlementFriend> _friends = <_SettlementFriend>[];
+  final List<_SettlementFriend> _participants = <_SettlementFriend>[];
   final Map<String, double> _customAmounts = <String, double>{};
   int _selectedTabIndex = 0;
   bool _isLoading = true;
+  bool _didRedirectToGroupSelection = false;
 
   @override
   void initState() {
     super.initState();
+    if (!_hasValidGroupContext) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _redirectToGroupSelection();
+      });
+      return;
+    }
     _loadFriendsFromSupabase();
+  }
+
+  bool get _hasValidGroupContext {
+    return _isUuid(widget.groupId) && _isUuid(widget.userId);
+  }
+
+  Future<void> _redirectToGroupSelection() async {
+    if (!mounted || _didRedirectToGroupSelection) return;
+    _didRedirectToGroupSelection = true;
+
+    final SplitBillGroupSelectionResult? result = await Navigator.of(context)
+        .push<SplitBillGroupSelectionResult>(
+          MaterialPageRoute<SplitBillGroupSelectionResult>(
+            builder: (_) => SplitBillGroupSelectionPage(
+              totalBill: widget.totalBill,
+              billTitle: widget.billTitle,
+              itemCount: widget.itemCount,
+              subtotal: widget.subtotal,
+              taxAmount: widget.taxAmount,
+              serviceFee: widget.serviceFee,
+              category: widget.category,
+              items: widget.items,
+            ),
+          ),
+        );
+
+    if (!mounted) return;
+    if (result == null) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => SplitBillPage(
+          groupId: result.groupId,
+          userId: result.userId,
+          totalBill: widget.totalBill,
+          billTitle: widget.billTitle,
+          itemCount: widget.itemCount,
+          subtotal: widget.subtotal,
+          taxAmount: widget.taxAmount,
+          serviceFee: widget.serviceFee,
+          category: widget.category,
+          items: widget.items,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadFriendsFromSupabase() async {
     setState(() => _isLoading = true);
 
-    if (!_isUuid(widget.groupId) || !_isUuid(widget.userId)) {
+    if (!_hasValidGroupContext) {
       setState(() => _isLoading = false);
       return;
     }
 
     try {
-      final List<dynamic> rows = await _fetchFriendRows();
-      final List<_SettlementFriend> friends = rows
+      final List<dynamic> rows = await _fetchParticipantRows();
+      final List<_SettlementFriend> participants = rows
           .map((dynamic row) => row as Map<String, dynamic>)
           .map(_friendFromRow)
           .whereType<_SettlementFriend>()
           .toList();
+      participants.sort((_SettlementFriend first, _SettlementFriend second) {
+        if (first.id == widget.userId) return -1;
+        if (second.id == widget.userId) return 1;
+        return first.name.toLowerCase().compareTo(second.name.toLowerCase());
+      });
 
       if (!mounted) return;
       setState(() {
-        _friends
+        _participants
           ..clear()
-          ..addAll(friends);
+          ..addAll(participants);
         _isLoading = false;
       });
     } catch (error) {
@@ -82,23 +143,21 @@ class _SplitBillPageState extends State<SplitBillPage> {
     }
   }
 
-  Future<List<dynamic>> _fetchFriendRows() async {
+  Future<List<dynamic>> _fetchParticipantRows() async {
     try {
       return await Supabase.instance.client
           .from('group_members')
           .select(
-            'id,user_id,status,profiles:user_id(full_name,display_name,name,avatar_url,photo_url)',
+            'id,user_id,status,profiles!group_members_user_id_fkey(user_name,email,avatar_url)',
           )
           .eq('group_id', widget.groupId)
-          .eq('status', 'active')
-          .neq('user_id', widget.userId);
+          .eq('status', 'active');
     } catch (_) {
       return await Supabase.instance.client
           .from('group_members')
           .select()
           .eq('group_id', widget.groupId)
-          .eq('status', 'active')
-          .neq('user_id', widget.userId);
+          .eq('status', 'active');
     }
   }
 
@@ -114,15 +173,17 @@ class _SplitBillPageState extends State<SplitBillPage> {
     return _SettlementFriend(
       id: id,
       name: _firstNotEmpty(<Object?>[
-        profileMap?['full_name'],
-        profileMap?['display_name'],
-        profileMap?['name'],
+        profileMap?['user_name'],
         row['name'],
         'Teman ${id.length >= 4 ? id.substring(0, 4) : id}',
       ]),
+      account: _firstNotEmpty(<Object?>[
+        profileMap?['email'],
+        row['email'],
+        id,
+      ], fallback: id),
       avatarUrl: _firstNotEmpty(<Object?>[
         profileMap?['avatar_url'],
-        profileMap?['photo_url'],
         row['avatar_url'],
       ], fallback: ''),
     );
@@ -130,12 +191,20 @@ class _SplitBillPageState extends State<SplitBillPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<_SettlementFriend> participants = <_SettlementFriend>[
-      const _SettlementFriend(id: 'current-user', name: 'You', avatarUrl: ''),
-      ..._friends,
-    ];
-    final bool hasFriends = _friends.isNotEmpty;
-    final double splitAmount = widget.totalBill / participants.length;
+    if (!_hasValidGroupContext) {
+      return const Scaffold(
+        backgroundColor: _surface,
+        body: SafeArea(
+          child: Center(child: CircularProgressIndicator(color: _primary)),
+        ),
+      );
+    }
+
+    final List<_SettlementFriend> participants = _participants;
+    final bool hasParticipants = participants.isNotEmpty;
+    final double splitAmount = hasParticipants
+        ? widget.totalBill / participants.length
+        : 0;
     final List<int> percentages = _percentagesFor(participants.length);
     _syncCustomAmounts(participants);
 
@@ -179,7 +248,7 @@ class _SplitBillPageState extends State<SplitBillPage> {
                       },
                     ),
                     const SizedBox(height: 18),
-                    if (hasFriends) ...<Widget>[
+                    if (hasParticipants) ...<Widget>[
                       _ParticipantsCard(
                         participants: participants,
                         splitAmount: splitAmount,
@@ -190,10 +259,15 @@ class _SplitBillPageState extends State<SplitBillPage> {
                         onEditCustomAmount: _editCustomAmount,
                       ),
                       const SizedBox(height: 14),
+                    ] else ...<Widget>[
+                      const _EmptyParticipantsCard(),
+                      const SizedBox(height: 14),
                     ],
                     _AddFriendButton(onTap: _showAddFriendDialog),
                     const Spacer(),
-                    _SubmitButton(onPressed: _handleSubmit),
+                    _SubmitButton(
+                      onPressed: hasParticipants ? _handleSubmit : null,
+                    ),
                   ],
                 ),
               ),
@@ -223,10 +297,11 @@ class _SplitBillPageState extends State<SplitBillPage> {
                 final String name = controller.text.trim();
                 if (name.isEmpty) return;
                 setState(() {
-                  _friends.add(
+                  _participants.add(
                     _SettlementFriend(
                       id: DateTime.now().microsecondsSinceEpoch.toString(),
                       name: name,
+                      account: 'manual',
                       avatarUrl: '',
                     ),
                   );
@@ -297,9 +372,9 @@ class _SplitBillPageState extends State<SplitBillPage> {
 
   void _handleSubmit() {
     final List<_SettlementFriend> participants = <_SettlementFriend>[
-      const _SettlementFriend(id: 'current-user', name: 'You', avatarUrl: ''),
-      ..._friends,
+      ..._participants,
     ];
+    if (participants.isEmpty) return;
     final List<int> percentages = _percentagesFor(participants.length);
     _syncCustomAmounts(participants);
 
@@ -322,9 +397,7 @@ class _SplitBillPageState extends State<SplitBillPage> {
               for (int index = 0; index < participants.length; index++)
                 SplitBillParticipantInput(
                   displayName: participants[index].name,
-                  userId: participants[index].id == 'current-user'
-                      ? widget.userId
-                      : participants[index].id,
+                  userId: participants[index].id,
                   avatarUrl: participants[index].avatarUrl.isEmpty
                       ? null
                       : participants[index].avatarUrl,
@@ -601,6 +674,32 @@ class _ParticipantsCard extends StatelessWidget {
   }
 }
 
+class _EmptyParticipantsCard extends StatelessWidget {
+  const _EmptyParticipantsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _SplitBillPageState._line),
+      ),
+      child: const Text(
+        'Belum ada anggota aktif di grup ini.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: _SplitBillPageState._muted,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _ParticipantTile extends StatelessWidget {
   const _ParticipantTile({
     required this.friend,
@@ -630,17 +729,35 @@ class _ParticipantTile extends StatelessWidget {
           _Avatar(friend: friend, isCurrentUser: isCurrentUser),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              friend.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _SplitBillPageState._ink,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  friend.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _SplitBillPageState._ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  friend.account,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _SplitBillPageState._muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: 8),
           if (showPercentage) ...<Widget>[
             const SizedBox(width: 8),
             _PercentagePill(percentage: percentage),
@@ -791,7 +908,7 @@ class _AddFriendButton extends StatelessWidget {
 class _SubmitButton extends StatelessWidget {
   const _SubmitButton({required this.onPressed});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -818,11 +935,13 @@ class _SettlementFriend {
   const _SettlementFriend({
     required this.id,
     required this.name,
+    required this.account,
     required this.avatarUrl,
   });
 
   final String id;
   final String name;
+  final String account;
   final String avatarUrl;
 }
 

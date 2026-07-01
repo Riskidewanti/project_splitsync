@@ -61,6 +61,7 @@ class _AddFriendsPageState extends State<AddFriendsPage> {
           name: target.name,
           handle: target.handle,
           avatarUrl: target.avatarUrl,
+          email: target.email,
           sent: true,
         );
         _selectedFriend = _sentFriend;

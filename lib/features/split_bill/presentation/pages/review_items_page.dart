@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../ocr/presentation/pages/edit_items_page.dart';
 import 'split_bill_page.dart';
+import 'split_bill_group_selection_page.dart';
 
 class ReviewItemsPage extends StatefulWidget {
   const ReviewItemsPage({
@@ -314,12 +315,33 @@ class _ReviewItemsPageState extends State<ReviewItemsPage> {
     if (value != null) onSaved(value);
   }
 
-  void _confirmAndSplit() {
-    Navigator.push(
+  Future<void> _confirmAndSplit() async {
+    final SplitBillGroupSelectionResult? result = await Navigator.push(
+      context,
+      MaterialPageRoute<SplitBillGroupSelectionResult>(
+        builder: (BuildContext context) {
+          return SplitBillGroupSelectionPage(
+            totalBill: _total,
+            billTitle: 'Whole Foods Market',
+            itemCount: _items.length,
+            subtotal: _subtotal,
+            taxAmount: _tax,
+            serviceFee: _serviceFee,
+            items: List<ReceiptItem>.from(_items),
+          );
+        },
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    await Navigator.push(
       context,
       MaterialPageRoute<void>(
         builder: (BuildContext context) {
           return SplitBillPage(
+            groupId: result.groupId,
+            userId: result.userId,
             totalBill: _total,
             billTitle: 'Whole Foods Market',
             itemCount: _items.length,

@@ -8,6 +8,7 @@ class FriendProfile {
     required this.name,
     required this.handle,
     required this.avatarUrl,
+    this.email = '',
     this.sent = false,
   });
 
@@ -15,6 +16,7 @@ class FriendProfile {
   final String name;
   final String handle;
   final String avatarUrl;
+  final String email;
   final bool sent;
 
   String get initials {
@@ -98,6 +100,64 @@ class FriendRequestService {
   static Future<List<FriendProfile>> friends() async {
     final currentId = await _currentProfileId();
     try {
+      final friendRows = await _client
+          .from('friends')
+          .select('friend_id')
+          .eq('user_id', currentId);
+
+      final friendIds = friendRows
+          .map<String>((row) => (row['friend_id'] ?? '').toString())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+
+      if (friendIds.isEmpty) return const [];
+
+      return _profilesByIds(friendIds);
+    } catch (_) {
+      return _friendsFromAcceptedRequests(currentId);
+    }
+  }
+
+  static Future<bool> saveAcceptedFriendship({
+    required String requesterId,
+    required String addresseeId,
+    String? requestId,
+  }) async {
+    if (requesterId.isEmpty || addresseeId.isEmpty) {
+      throw const FriendRequestException(
+        'Data permintaan pertemanan tidak lengkap.',
+      );
+    }
+    if (requesterId == addresseeId) {
+      throw const FriendRequestException(
+        'Tidak bisa berteman dengan diri sendiri.',
+      );
+    }
+
+    try {
+      await _client.from('friends').upsert(<Map<String, dynamic>>[
+        <String, dynamic>{
+          'user_id': requesterId,
+          'friend_id': addresseeId,
+          'friend_request_id': requestId,
+        },
+        <String, dynamic>{
+          'user_id': addresseeId,
+          'friend_id': requesterId,
+          'friend_request_id': requestId,
+        },
+      ], onConflict: 'user_id,friend_id');
+      return true;
+    } catch (error) {
+      if (_isMissingFriendsTable(error)) return false;
+      throw FriendRequestException('Pertemanan belum bisa disimpan: $error');
+    }
+  }
+
+  static Future<List<FriendProfile>> _friendsFromAcceptedRequests(
+    String currentId,
+  ) async {
+    try {
       final requestRows = await _client
           .from('friend_requests')
           .select('requester_id,addressee_id,status')
@@ -118,15 +178,7 @@ class FriendRequestService {
 
       if (friendIds.isEmpty) return const [];
 
-      final profileRows = await _client
-          .from('profiles')
-          .select('id,user_name,email,avatar_url')
-          .inFilter('id', friendIds.toList());
-
-      return profileRows
-          .map<FriendProfile>((row) => _profileFromRow(row, sentIds: const {}))
-          .where((profile) => profile.id.isNotEmpty)
-          .toList();
+      return _profilesByIds(friendIds);
     } catch (error) {
       throw FriendRequestException('Daftar teman belum bisa dimuat: $error');
     }
@@ -139,6 +191,18 @@ class FriendRequestService {
     }
 
     try {
+      try {
+        await _client
+            .from('friends')
+            .delete()
+            .or(
+              'and(user_id.eq.$currentId,friend_id.eq.$friendId),'
+              'and(user_id.eq.$friendId,friend_id.eq.$currentId)',
+            );
+      } catch (error) {
+        if (!_isMissingFriendsTable(error)) rethrow;
+      }
+
       await _client
           .from('friend_requests')
           .delete()
@@ -150,6 +214,20 @@ class FriendRequestService {
     } catch (error) {
       throw FriendRequestException('Teman belum bisa dihapus: $error');
     }
+  }
+
+  static Future<List<FriendProfile>> _profilesByIds(
+    Set<String> profileIds,
+  ) async {
+    final profileRows = await _client
+        .from('profiles')
+        .select('id,user_name,email,avatar_url')
+        .inFilter('id', profileIds.toList());
+
+    return profileRows
+        .map<FriendProfile>((row) => _profileFromRow(row, sentIds: const {}))
+        .where((profile) => profile.id.isNotEmpty)
+        .toList();
   }
 
   static Future<String> _currentProfileId() async {
@@ -221,6 +299,7 @@ class FriendRequestService {
       name: userName.isEmpty ? 'SplitSync User' : userName,
       handle: userName.isEmpty ? email : '@$userName',
       avatarUrl: (row['avatar_url'] ?? '').toString(),
+      email: email,
       sent: sentIds.contains((row['id'] ?? '').toString()),
     );
   }
@@ -249,6 +328,13 @@ class FriendRequestService {
   static String _nameFromEmail(String email) {
     if (!email.contains('@')) return email;
     return email.split('@').first;
+  }
+
+  static bool _isMissingFriendsTable(Object error) {
+    final message = error.toString();
+    return message.contains("public.friends") ||
+        message.contains('PGRST205') ||
+        message.contains("Could not find the table 'friends'");
   }
 }
 

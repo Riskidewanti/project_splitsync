@@ -5,8 +5,8 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../expenses/presentation/pages/split_calculation_page.dart';
 import '../../../groups/data/datasources/group_remote_data_source.dart';
 import '../../../groups/data/models/group_member_model.dart';
-import '../../../groups/data/models/group_model.dart';
 import '../../../groups/data/repositories/group_repository_impl.dart';
+import '../../../split_bill/presentation/pages/split_bill_group_selection_page.dart';
 
 class ReceiptItem {
   const ReceiptItem({
@@ -57,7 +57,6 @@ class _EditItemsPageState extends State<EditItemsPage> {
     remoteDataSource: GroupRemoteDataSourceImpl(),
   );
   late final List<ReceiptItem> _items = List<ReceiptItem>.from(widget.items);
-  List<SplitMember> _members = const <SplitMember>[];
   String? _currentUserId;
   bool _isLoadingMembers = true;
 
@@ -82,58 +81,19 @@ class _EditItemsPageState extends State<EditItemsPage> {
 
       setState(() {
         _currentUserId = null;
-        _members = const <SplitMember>[];
         _isLoadingMembers = false;
       });
       return;
     }
 
-    try {
-      final String? groupId = await _resolveGroupId(currentUserId);
-      final List<GroupMemberModel> groupMembers = groupId == null
-          ? const <GroupMemberModel>[]
-          : await _groupRepository.getGroupMembers(groupId);
-      final SessionProfile currentUser = profile!;
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _currentUserId = currentUserId;
-        _members = _buildSplitMembers(groupMembers, currentUser);
-        _isLoadingMembers = false;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _currentUserId = currentUserId;
-        _members = const <SplitMember>[];
-        _isLoadingMembers = false;
-      });
-
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Gagal memuat anggota: $error')));
-    }
-  }
-
-  Future<String?> _resolveGroupId(String currentUserId) async {
-    if (widget.groupId != null && widget.groupId!.trim().isNotEmpty) {
-      return widget.groupId!.trim();
+    if (!mounted) {
+      return;
     }
 
-    final List<GroupModel> groups = await _groupRepository.getUserGroups(
-      currentUserId,
-    );
-    if (groups.isEmpty) {
-      return null;
-    }
-
-    return groups.first.id;
+    setState(() {
+      _currentUserId = currentUserId;
+      _isLoadingMembers = false;
+    });
   }
 
   List<SplitMember> _buildSplitMembers(
@@ -147,9 +107,7 @@ class _EditItemsPageState extends State<EditItemsPage> {
     final double splitAmount = total / groupMembers.length;
 
     return groupMembers.map((GroupMemberModel member) {
-      final String displayName = member.userId == currentUser.id
-          ? _currentUserDisplayName(currentUser)
-          : _fallbackDisplayName(member.userId);
+      final String displayName = _memberDisplayName(member, currentUser);
 
       return SplitMember(
         userId: member.userId,
@@ -158,6 +116,27 @@ class _EditItemsPageState extends State<EditItemsPage> {
         amount: splitAmount,
       );
     }).toList();
+  }
+
+  String _memberDisplayName(
+    GroupMemberModel member,
+    SessionProfile currentUser,
+  ) {
+    if (member.userId == currentUser.id) {
+      return _currentUserDisplayName(currentUser);
+    }
+
+    final String? displayName = member.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    final String? email = member.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      return email;
+    }
+
+    return _fallbackDisplayName(member.userId);
   }
 
   String _currentUserDisplayName(SessionProfile currentUser) {
@@ -199,7 +178,7 @@ class _EditItemsPageState extends State<EditItemsPage> {
 
   double get total => subtotal + tax + serviceFee;
 
-  void _openSplitCalculation() {
+  Future<void> _openSplitCalculation() async {
     final String? currentUserId = _currentUserId;
     if (currentUserId == null) {
       ScaffoldMessenger.of(context)
@@ -210,24 +189,83 @@ class _EditItemsPageState extends State<EditItemsPage> {
       return;
     }
 
-    Navigator.push(
+    final SplitBillGroupSelectionResult? result = await Navigator.push(
       context,
-      MaterialPageRoute<void>(
+      MaterialPageRoute<SplitBillGroupSelectionResult>(
         builder: (BuildContext context) {
-          return SplitCalculationPage(
-            merchantName: widget.merchantName,
-            expenseDate: widget.expenseDate,
-            items: List<ReceiptItem>.unmodifiable(_items),
+          return SplitBillGroupSelectionPage(
+            totalBill: total,
+            billTitle: widget.merchantName,
+            itemCount: _items.length,
             subtotal: subtotal,
-            tax: tax,
+            taxAmount: tax,
             serviceFee: serviceFee,
-            totalAmount: total,
-            members: _members,
-            currentUserId: currentUserId,
+            items: List<ReceiptItem>.unmodifiable(_items),
           );
         },
       ),
     );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    try {
+      final SessionProfile? profile = await AuthService.currentSession();
+      if (profile == null) {
+        if (!mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('Login diperlukan untuk split.')),
+          );
+        return;
+      }
+
+      final List<GroupMemberModel> groupMembers = await _groupRepository
+          .getGroupMembers(result.groupId);
+      final List<SplitMember> selectedMembers = _buildSplitMembers(
+        groupMembers,
+        profile,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) {
+            return SplitCalculationPage(
+              merchantName: widget.merchantName,
+              expenseDate: widget.expenseDate,
+              items: List<ReceiptItem>.unmodifiable(_items),
+              subtotal: subtotal,
+              tax: tax,
+              serviceFee: serviceFee,
+              totalAmount: total,
+              members: selectedMembers,
+              currentUserId: result.userId,
+              groupId: result.groupId,
+            );
+          },
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Gagal memuat anggota grup: $error')),
+        );
+    }
   }
 
   Future<void> _addItem() async {
@@ -363,7 +401,9 @@ class _EditItemsPageState extends State<EditItemsPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: _isLoadingMembers ? null : _openSplitCalculation,
+                      onPressed: _isLoadingMembers
+                          ? null
+                          : _openSplitCalculation,
                       label: const Text(
                         'KONFIRMASI & SPLIT',
                         style: TextStyle(
@@ -389,9 +429,7 @@ class _EditItemsPageState extends State<EditItemsPage> {
 class _ItemDialogResult {
   const _ItemDialogResult.save(this.item) : delete = false;
 
-  const _ItemDialogResult.delete()
-    : item = null,
-      delete = true;
+  const _ItemDialogResult.delete() : item = null, delete = true;
 
   final ReceiptItem? item;
   final bool delete;
@@ -487,10 +525,8 @@ class _ItemDialogState extends State<_ItemDialog> {
       actions: <Widget>[
         if (widget.item != null)
           TextButton(
-            onPressed: () => Navigator.pop(
-              context,
-              const _ItemDialogResult.delete(),
-            ),
+            onPressed: () =>
+                Navigator.pop(context, const _ItemDialogResult.delete()),
             child: const Text('Hapus'),
           ),
         TextButton(

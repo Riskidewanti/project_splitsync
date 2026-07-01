@@ -7,6 +7,7 @@ import 'add_friends_page.dart';
 import 'authentication/auth_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/local_notification_service.dart';
+import 'features/notifications/presentation/pages/notifications_page.dart';
 import 'features/ocr/presentation/pages/scan_page.dart';
 import 'features/groups/presentation/pages/group_home_page.dart';
 import 'features/settlements/presentation/pages/settlement_debt_list_page.dart';
@@ -119,6 +120,7 @@ class SplitSyncApp extends StatelessWidget {
         '/scan': (_) => const ScanPage(),
         '/groups': (_) => const GroupHomePage(),
         '/reports': (_) => const ReportsPage(),
+        '/notifications': (_) => const NotificationsPage(),
         '/settlements': (_) => const SettlementDebtListPage(),
         '/friends/add': (_) => const AddFriendsPage(),
         '/friends': (_) => const FriendsListPage(),

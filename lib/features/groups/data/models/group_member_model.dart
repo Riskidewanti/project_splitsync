@@ -81,7 +81,8 @@ class GroupMemberModel extends Equatable {
       groupId: _requiredString(json['group_id'], 'group_id'),
       userId: _requiredString(json['user_id'], 'user_id'),
 
-      displayName: profile?['display_name'] as String?,
+      displayName:
+          (profile?['display_name'] ?? profile?['user_name']) as String?,
       email: profile?['email'] as String?,
       avatarUrl: profile?['avatar_url'] as String?,
 

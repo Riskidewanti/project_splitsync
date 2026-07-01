@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../authentication/auth_service.dart';
+import '../../core/utils/currency_formatter.dart';
 import '../../features/expenses/presentation/pages/add_expense_page.dart';
 import '../../features/groups/data/datasources/group_remote_data_source.dart';
 import '../../features/groups/data/models/group_member_model.dart';
@@ -21,18 +24,124 @@ class _HomePageState extends State<HomePage> {
   final GroupRepositoryImpl _groupRepository = GroupRepositoryImpl(
     remoteDataSource: GroupRemoteDataSourceImpl(),
   );
+  final SupabaseClient _client = Supabase.instance.client;
 
   late Future<List<_HomeGroupData>> _groupsFuture;
+  late Future<_HomeDashboardData> _dashboardFuture;
 
   @override
   void initState() {
     super.initState();
     _groupsFuture = _loadGroups();
+    _dashboardFuture = _loadDashboardData();
   }
 
   Future<List<_HomeGroupData>> _loadGroups() async {
     final List<GroupModel> groups = await _groupRepository.getGroups();
     return Future.wait(groups.take(2).map(_buildGroupData));
+  }
+
+  Future<_HomeDashboardData> _loadDashboardData() async {
+    final SessionProfile? session = await AuthService.currentSession();
+    final String? currentUserId = session?.id;
+    if (currentUserId == null || currentUserId.trim().isEmpty) {
+      throw const AuthException('Akun aktif belum ditemukan.');
+    }
+
+    final List<GroupModel> groups = await _groupRepository.getGroups();
+    final List<String> groupIds = groups
+        .map((GroupModel group) => group.id)
+        .toList();
+
+    final double debtAmount = await _loadCurrentUserDebt(currentUserId);
+    final double paidByUser = groupIds.isEmpty
+        ? 0
+        : await _loadUserPaidTotal(groupIds, currentUserId);
+    final List<_HomeActivityData> activities = groupIds.isEmpty
+        ? const <_HomeActivityData>[]
+        : await _loadRecentActivities(groupIds, currentUserId);
+
+    return _HomeDashboardData(
+      cleanBalance: paidByUser - debtAmount,
+      receivableAmount: paidByUser,
+      debtAmount: debtAmount,
+      activities: activities,
+    );
+  }
+
+  Future<double> _loadCurrentUserDebt(String currentUserId) async {
+    try {
+      final List<dynamic> rows = await _client
+          .from('split_bill')
+          .select('exact_amount,is_paid')
+          .eq('user_id', currentUserId)
+          .eq('is_paid', false)
+          .gt('exact_amount', 0);
+
+      return rows.fold<double>(0, (double total, dynamic row) {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(row as Map);
+        return total + _asDouble(data['exact_amount']);
+      });
+    } catch (error) {
+      final String message = error.toString();
+      if (!message.contains('is_paid')) rethrow;
+
+      final List<dynamic> rows = await _client
+          .from('split_bill')
+          .select('exact_amount')
+          .eq('user_id', currentUserId)
+          .gt('exact_amount', 0);
+
+      return rows.fold<double>(0, (double total, dynamic row) {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(row as Map);
+        return total + _asDouble(data['exact_amount']);
+      });
+    }
+  }
+
+  Future<double> _loadUserPaidTotal(
+    List<String> groupIds,
+    String currentUserId,
+  ) async {
+    final List<dynamic> rows = await _client
+        .from('expenses')
+        .select('total_amount')
+        .inFilter('group_id', groupIds)
+        .eq('payer_id', currentUserId);
+
+    return rows.fold<double>(0, (double total, dynamic row) {
+      final Map<String, dynamic> data = Map<String, dynamic>.from(row as Map);
+      return total + _asDouble(data['total_amount']);
+    });
+  }
+
+  Future<List<_HomeActivityData>> _loadRecentActivities(
+    List<String> groupIds,
+    String currentUserId,
+  ) async {
+    final List<dynamic> rows = await _client
+        .from('expenses')
+        .select(
+          'id,group_id,payer_id,title,merchant_name,total_amount,created_at,expense_date',
+        )
+        .inFilter('group_id', groupIds)
+        .order('created_at', ascending: false)
+        .limit(3);
+
+    final Map<String, String> groupNames = <String, String>{
+      for (final GroupModel group in await _groupRepository.getGroups())
+        group.id: group.name,
+    };
+
+    return rows
+        .map((dynamic row) {
+          return _HomeActivityData.fromRow(
+            Map<String, dynamic>.from(row as Map),
+            currentUserId: currentUserId,
+            groupNames: groupNames,
+          );
+        })
+        .toList(growable: false);
   }
 
   Future<_HomeGroupData> _buildGroupData(GroupModel group) async {
@@ -49,7 +158,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _openAddExpense() async {
+  void _openSplitBillOcr() {
+    Navigator.of(context).pushNamed('/scan');
+  }
+
+  Future<void> _openManualExpense() async {
     try {
       final String? currentUserId = await _groupRepository.getCurrentUserId();
       if (!mounted) return;
@@ -63,7 +176,9 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
 
       if (groups.isEmpty) {
-        _showHomeMessage('Buat grup terlebih dahulu sebelum menambah pengeluaran.');
+        _showHomeMessage(
+          'Buat grup terlebih dahulu sebelum menambah pengeluaran.',
+        );
         return;
       }
 
@@ -173,13 +288,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<String> _memberInitials(List<GroupMemberModel> members) {
-    final List<String> initials = members
-        .take(3)
-        .map((GroupMemberModel member) {
-          final String name = _memberName(member).trim();
-          return name.isEmpty ? '?' : name.characters.first.toUpperCase();
-        })
-        .toList();
+    final List<String> initials = members.take(3).map((
+      GroupMemberModel member,
+    ) {
+      final String name = _memberName(member).trim();
+      return name.isEmpty ? '?' : name.characters.first.toUpperCase();
+    }).toList();
     return initials.isEmpty ? const <String>['?'] : initials;
   }
 
@@ -224,15 +338,16 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _BalanceCard(),
+                      _BalanceCard(dataFuture: _dashboardFuture),
                       SizedBox(height: responsive.space(22)),
-                      _QuickActions(onAddExpense: _openAddExpense),
+                      _QuickActions(onAddExpense: _openManualExpense),
                       SizedBox(height: responsive.space(26)),
                       _SectionTitle(
                         title: 'Grup Teratas',
                         action: 'Lihat Semua',
                         titleSize: responsive.font(26),
-                        onAction: () => Navigator.of(context).pushNamed('/groups'),
+                        onAction: () =>
+                            Navigator.of(context).pushNamed('/groups'),
                       ),
                       SizedBox(height: responsive.space(22)),
                       _TopGroups(
@@ -243,7 +358,7 @@ class _HomePageState extends State<HomePage> {
                         memberInitials: _memberInitials,
                       ),
                       SizedBox(height: responsive.space(26)),
-                      const _ActivityPanel(),
+                      _ActivityPanel(dataFuture: _dashboardFuture),
                     ],
                   ),
                 ),
@@ -253,6 +368,7 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       bottomNavigationBar: _BottomNav(
+        onCreateSplit: _openSplitBillOcr,
         onProfile: () {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute<void>(builder: (_) => ProfileSettingsPage()),
@@ -268,6 +384,84 @@ class _HomeGroupData {
 
   final GroupModel group;
   final List<GroupMemberModel> members;
+}
+
+class _HomeDashboardData {
+  const _HomeDashboardData({
+    required this.cleanBalance,
+    required this.receivableAmount,
+    required this.debtAmount,
+    required this.activities,
+  });
+
+  final double cleanBalance;
+  final double receivableAmount;
+  final double debtAmount;
+  final List<_HomeActivityData> activities;
+}
+
+class _HomeActivityData {
+  const _HomeActivityData({
+    required this.title,
+    required this.groupName,
+    required this.amount,
+    required this.createdAt,
+    required this.isPaidByCurrentUser,
+  });
+
+  final String title;
+  final String groupName;
+  final double amount;
+  final DateTime createdAt;
+  final bool isPaidByCurrentUser;
+
+  factory _HomeActivityData.fromRow(
+    Map<String, dynamic> row, {
+    required String currentUserId,
+    required Map<String, String> groupNames,
+  }) {
+    final String groupId = (row['group_id'] ?? '').toString();
+    final String title = _firstFilledString(<Object?>[
+      row['merchant_name'],
+      row['title'],
+      'Pengeluaran',
+    ]);
+    final DateTime createdAt =
+        _asDateTime(row['created_at']) ??
+        _asDateTime(row['expense_date']) ??
+        DateTime.now();
+
+    return _HomeActivityData(
+      title: title,
+      groupName: groupNames[groupId] ?? 'Grup',
+      amount: _asDouble(row['total_amount']),
+      createdAt: createdAt,
+      isPaidByCurrentUser: (row['payer_id'] ?? '').toString() == currentUserId,
+    );
+  }
+}
+
+double _asDouble(Object? value) {
+  if (value is double) return value;
+  if (value is int) return value.toDouble();
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value) ?? 0;
+  return 0;
+}
+
+DateTime? _asDateTime(Object? value) {
+  if (value is DateTime) return value;
+  if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+  return null;
+}
+
+String _firstFilledString(List<Object?> values) {
+  for (final Object? value in values) {
+    final String text = (value ?? '').toString().trim();
+    if (text.isNotEmpty) return text;
+  }
+
+  return '';
 }
 
 class _Header extends StatelessWidget {
@@ -301,10 +495,13 @@ class _Header extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Icon(
-            Icons.notifications_none_rounded,
-            color: const Color(0xFF4B3333),
-            size: responsive.clamp(30, 26, 32),
+          IconButton(
+            onPressed: () => Navigator.of(context).pushNamed('/notifications'),
+            icon: Icon(
+              Icons.notifications_none_rounded,
+              color: const Color(0xFF4B3333),
+              size: responsive.clamp(30, 26, 32),
+            ),
           ),
         ],
       ),
@@ -313,7 +510,9 @@ class _Header extends StatelessWidget {
 }
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard();
+  const _BalanceCard({required this.dataFuture});
+
+  final Future<_HomeDashboardData> dataFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -330,48 +529,69 @@ class _BalanceCard extends StatelessWidget {
         color: const Color(0xFFA4161D),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        children: [
-          Text(
-            'Total Saldo Bersih',
-            style: TextStyle(
-              color: const Color(0xFFDFA5A8),
-              fontSize: responsive.font(17),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: responsive.space(10)),
-          FittedBox(
-            child: Text(
-              'Rp 2.000.000',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: responsive.font(46),
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          SizedBox(height: responsive.space(24)),
-          Row(
-            children: const [
-              Expanded(
-                child: _BalanceMiniCard(
-                  color: Color(0xFF8C0010),
-                  title: 'Hutang ke Anda',
-                  value: 'Rp 700.000',
-                ),
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: _BalanceMiniCard(
-                  color: Color(0xFF26384B),
-                  title: 'Hutang Kamu',
-                  value: 'Rp 100.000',
-                ),
-              ),
-            ],
-          ),
-        ],
+      child: FutureBuilder<_HomeDashboardData>(
+        future: dataFuture,
+        builder:
+            (BuildContext context, AsyncSnapshot<_HomeDashboardData> snapshot) {
+              final _HomeDashboardData data =
+                  snapshot.data ??
+                  const _HomeDashboardData(
+                    cleanBalance: 0,
+                    receivableAmount: 0,
+                    debtAmount: 0,
+                    activities: <_HomeActivityData>[],
+                  );
+
+              return Column(
+                children: [
+                  Text(
+                    'Total Saldo Bersih',
+                    style: TextStyle(
+                      color: const Color(0xFFDFA5A8),
+                      fontSize: responsive.font(17),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: responsive.space(10)),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 11),
+                      child: CircularProgressIndicator(color: Colors.white),
+                    )
+                  else
+                    FittedBox(
+                      child: Text(
+                        formatRupiah(data.cleanBalance),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: responsive.font(46),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  SizedBox(height: responsive.space(24)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _BalanceMiniCard(
+                          color: const Color(0xFF8C0010),
+                          title: 'Hutang ke Anda',
+                          value: formatRupiah(data.receivableAmount),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _BalanceMiniCard(
+                          color: const Color(0xFF26384B),
+                          title: 'Hutang Kamu',
+                          value: formatRupiah(data.debtAmount),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
       ),
     );
   }
@@ -731,7 +951,9 @@ class GroupEmptyState extends StatelessWidget {
 }
 
 class _ActivityPanel extends StatelessWidget {
-  const _ActivityPanel();
+  const _ActivityPanel({required this.dataFuture});
+
+  final Future<_HomeDashboardData> dataFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -755,39 +977,98 @@ class _ActivityPanel extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          _SectionTitle(
-            title: 'Aktivitas Terbaru',
-            action: 'Lihat semua',
-            titleSize: responsive.font(24),
-          ),
-          SizedBox(height: responsive.space(26)),
-          const _ActivityRow(
-            icon: Icons.restaurant,
-            bg: Color(0xFFD7E7FF),
-            title: "Dinner at Luigi's",
-            subtitle: 'Anda membayar •\n2 jam yang lalu',
-            amount: r'$120.00',
-            status: 'Anda menalangi\nRp60.000',
-          ),
-          const _ActivityRow(
-            icon: Icons.flight,
-            bg: Color(0xFFFFB5B7),
-            title: 'Flights to NYC',
-            subtitle: 'Sarah paid • Yesterday',
-            amount: r'$450.00',
-            status: r'Owe $225.00',
-          ),
-          const _ActivityRow(
-            icon: Icons.local_taxi,
-            bg: Color(0xFFD7E7FF),
-            title: 'Uber home',
-            subtitle: 'You paid • Mon',
-            amount: r'$24.50',
-            status: r'Lent $12.25',
-          ),
-        ],
+      child: FutureBuilder<_HomeDashboardData>(
+        future: dataFuture,
+        builder:
+            (BuildContext context, AsyncSnapshot<_HomeDashboardData> snapshot) {
+              final List<_HomeActivityData> activities =
+                  snapshot.data?.activities ?? const <_HomeActivityData>[];
+
+              return Column(
+                children: [
+                  _SectionTitle(
+                    title: 'Aktivitas Terbaru',
+                    action: 'Lihat semua',
+                    titleSize: responsive.font(24),
+                  ),
+                  SizedBox(height: responsive.space(26)),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (snapshot.hasError)
+                    const _ActivityMessage(message: 'Gagal memuat aktivitas.')
+                  else if (activities.isEmpty)
+                    const _ActivityMessage(
+                      message: 'Belum ada aktivitas terbaru.',
+                    )
+                  else
+                    for (final _HomeActivityData activity in activities)
+                      _ActivityRow(
+                        icon: _activityIcon(activity.title),
+                        bg: activity.isPaidByCurrentUser
+                            ? const Color(0xFFD7E7FF)
+                            : const Color(0xFFFFD9DC),
+                        title: activity.title,
+                        subtitle:
+                            '${activity.groupName}\n${_relativeTime(activity.createdAt)}',
+                        amount: formatRupiah(activity.amount),
+                        status: activity.isPaidByCurrentUser
+                            ? 'Anda membayar'
+                            : 'Dibayar anggota',
+                      ),
+                ],
+              );
+            },
+      ),
+    );
+  }
+
+  IconData _activityIcon(String title) {
+    final String lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('taxi') || lowerTitle.contains('uber')) {
+      return Icons.local_taxi;
+    }
+    if (lowerTitle.contains('flight') || lowerTitle.contains('trip')) {
+      return Icons.flight;
+    }
+    if (lowerTitle.contains('food') ||
+        lowerTitle.contains('makan') ||
+        lowerTitle.contains('dinner')) {
+      return Icons.restaurant;
+    }
+    return Icons.receipt_long_outlined;
+  }
+
+  String _relativeTime(DateTime createdAt) {
+    final Duration difference = DateTime.now().difference(createdAt.toLocal());
+    if (difference.inMinutes < 1) return 'Baru saja';
+    if (difference.inHours < 1) return '${difference.inMinutes} menit lalu';
+    if (difference.inDays < 1) return '${difference.inHours} jam lalu';
+    if (difference.inDays == 1) return 'Kemarin';
+    return '${difference.inDays} hari lalu';
+  }
+}
+
+class _ActivityMessage extends StatelessWidget {
+  const _ActivityMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = Responsive.of(context);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: responsive.space(18)),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: const Color(0xFF5E5656),
+          fontSize: responsive.font(14),
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -886,66 +1167,77 @@ class _ActivityRow extends StatelessWidget {
 }
 
 class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.onProfile});
+  const _BottomNav({required this.onCreateSplit, required this.onProfile});
 
+  final VoidCallback onCreateSplit;
   final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
-    return SafeArea(
-      top: false,
-      child: Container(
-        height: responsive.clamp(92, 82, 96),
-        padding: EdgeInsets.symmetric(
-          horizontal: responsive.clamp(22, 12, 24),
-          vertical: responsive.space(8),
-        ),
-        decoration: const BoxDecoration(color: Colors.white),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const _NavItem(
-              icon: Icons.home_rounded,
-              label: 'Beranda',
-              selected: true,
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const _NavItem(icon: Icons.home, label: 'Beranda', selected: true),
+          _NavItem(
+            icon: Icons.groups_outlined,
+            label: 'Grup',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+          ),
+          _CenterSplitButton(onCreateSplit: onCreateSplit),
+          _NavItem(
+            icon: Icons.bar_chart,
+            label: 'Laporan',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+          ),
+          _NavItem(
+            icon: Icons.person_outline,
+            label: 'Profil',
+            onTap: onProfile,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CenterSplitButton extends StatelessWidget {
+  const _CenterSplitButton({required this.onCreateSplit});
+
+  final VoidCallback onCreateSplit;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 54,
+      height: 50,
+      child: Center(
+        child: SizedBox(
+          width: 52,
+          height: 52,
+          child: FloatingActionButton(
+            elevation: 4,
+            backgroundColor: const Color(0xFFC70F1B),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
             ),
-            _NavItem(
-              icon: Icons.groups_2_outlined,
-              label: 'Grup',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
-            ),
-            Container(
-              width: responsive.clamp(70, 58, 72),
-              height: responsive.clamp(70, 58, 72),
-              decoration: BoxDecoration(
-                color: const Color(0xFFC8152B),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x33C8152B),
-                    blurRadius: 16,
-                    offset: Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.add,
-                color: Colors.white,
-                size: responsive.clamp(42, 34, 44),
-              ),
-            ),
-            _NavItem(
-              icon: Icons.analytics_outlined,
-              label: 'Laporan',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
-            ),
-            _NavItem(
-              icon: Icons.person_outline_rounded,
-              label: 'Profil',
-              onTap: onProfile,
-            ),
-          ],
+            onPressed: onCreateSplit,
+            child: const Icon(Icons.add, size: 34),
+          ),
         ),
       ),
     );
@@ -967,32 +1259,31 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
     final color = selected ? const Color(0xFFC8152B) : const Color(0xFF5A5A5A);
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        width: responsive.clamp(78, 56, 78),
-        height: responsive.clamp(64, 56, 64),
+        width: 54,
+        height: 50,
         decoration: selected
             ? BoxDecoration(
                 color: const Color(0xFFFFDADB),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(12),
               )
             : null,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: responsive.clamp(27, 22, 28), color: color),
-            SizedBox(height: responsive.space(4)),
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 2),
             FittedBox(
               child: Text(
                 label,
                 style: TextStyle(
                   color: color,
-                  fontSize: responsive.font(13),
-                  fontWeight: FontWeight.w800,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

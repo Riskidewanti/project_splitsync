@@ -490,21 +490,16 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-
 class _ProfileBottomNav extends StatelessWidget {
   const _ProfileBottomNav();
 
   @override
   Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
     return SafeArea(
       top: false,
       child: Container(
-        height: responsive.clamp(96, 86, 100),
-        padding: EdgeInsets.symmetric(
-          horizontal: responsive.clamp(28, 14, 30),
-          vertical: responsive.space(8),
-        ),
+        height: 72,
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -527,11 +522,12 @@ class _ProfileBottomNav extends StatelessWidget {
             _BottomItem(
               icon: Icons.groups_2_outlined,
               label: 'Groups',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+              onTap: () =>
+                  Navigator.of(context).pushReplacementNamed('/groups'),
             ),
             Container(
-              width: responsive.clamp(72, 62, 76),
-              height: responsive.clamp(72, 62, 76),
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 color: const Color(0xFFC8152B),
                 borderRadius: BorderRadius.circular(20),
@@ -543,16 +539,13 @@ class _ProfileBottomNav extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                Icons.add,
-                color: Colors.white,
-                size: responsive.clamp(44, 36, 46),
-              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 34),
             ),
             _BottomItem(
               icon: Icons.analytics_outlined,
               label: 'Reports',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+              onTap: () =>
+                  Navigator.of(context).pushReplacementNamed('/reports'),
             ),
             const _BottomItem(
               icon: Icons.person_outline_rounded,
@@ -581,32 +574,31 @@ class _BottomItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = Responsive.of(context);
     final color = selected ? const Color(0xFFC8152B) : const Color(0xFF5A5A5A);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: responsive.clamp(76, 54, 78),
-        height: responsive.clamp(64, 56, 68),
+        width: 54,
+        height: 50,
         decoration: selected
             ? BoxDecoration(
                 color: const Color(0xFFFFDADB),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(12),
               )
             : null,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: responsive.clamp(28, 23, 30)),
-            SizedBox(height: responsive.space(3)),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 2),
             FittedBox(
               child: Text(
                 label,
                 style: TextStyle(
                   color: color,
-                  fontSize: responsive.font(13),
-                  fontWeight: FontWeight.w800,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -616,6 +608,7 @@ class _BottomItem extends StatelessWidget {
     );
   }
 }
+
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.message, required this.onBack});
 

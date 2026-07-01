@@ -20,10 +20,12 @@ class ConfirmExpensePage extends StatefulWidget {
     required this.splitMethod,
     required this.currentUserSplitAmount,
     required this.currentUserPercentage,
+    required this.groupId,
     this.note,
     this.tags = const <String>[],
   });
 
+  final String groupId;
   final String merchantName;
   final DateTime? expenseDate;
   final List<ReceiptItem> items;
@@ -59,6 +61,7 @@ class _ConfirmExpensePageState extends State<ConfirmExpensePage> {
 
     try {
       await _expenseRemoteDataSource.createExpense(
+        groupId: widget.groupId,
         merchantName: widget.merchantName,
         expenseDate: widget.expenseDate ?? DateTime.now(),
         items: widget.items

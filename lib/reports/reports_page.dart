@@ -398,10 +398,13 @@ class _ReportsHeader extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Icon(
-            Icons.notifications_none_rounded,
-            color: const Color(0xFF604444),
-            size: responsive.clamp(28, 25, 30),
+          IconButton(
+            onPressed: () => Navigator.of(context).pushNamed('/notifications'),
+            icon: Icon(
+              Icons.notifications_none_rounded,
+              color: const Color(0xFF604444),
+              size: responsive.clamp(28, 25, 30),
+            ),
           ),
         ],
       ),
@@ -1008,21 +1011,14 @@ class _ReportsErrorState extends StatelessWidget {
   }
 }
 
-
 class _ReportsBottomNav extends StatelessWidget {
   const _ReportsBottomNav();
 
   @override
   Widget build(BuildContext context) {
-    final responsive = _ReportsResponsive.of(context);
     return Container(
-      height: responsive.clamp(92, 84, 98),
-      padding: EdgeInsets.fromLTRB(
-        responsive.clamp(20, 14, 24),
-        responsive.space(10),
-        responsive.clamp(20, 14, 24),
-        responsive.space(10),
-      ),
+      height: 72,
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -1043,14 +1039,16 @@ class _ReportsBottomNav extends StatelessWidget {
               _BottomNavItem(
                 icon: Icons.home_rounded,
                 label: 'Home',
-                onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
+                onTap: () =>
+                    Navigator.of(context).pushReplacementNamed('/home'),
               ),
               _BottomNavItem(
                 icon: Icons.groups_rounded,
                 label: 'Groups',
-                onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+                onTap: () =>
+                    Navigator.of(context).pushReplacementNamed('/groups'),
               ),
-              const SizedBox(width: 74),
+              const SizedBox(width: 54),
               const _BottomNavItem(
                 icon: Icons.insert_chart_rounded,
                 label: 'Reports',
@@ -1060,16 +1058,18 @@ class _ReportsBottomNav extends StatelessWidget {
                 icon: Icons.person_outline_rounded,
                 label: 'Profile',
                 onTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const ProfileSettingsPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const ProfileSettingsPage(),
+                  ),
                 ),
               ),
             ],
           ),
           Positioned(
-            top: -responsive.clamp(30, 25, 32),
+            top: 0,
             child: Container(
-              width: responsive.clamp(58, 54, 62),
-              height: responsive.clamp(58, 54, 62),
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 color: const Color(0xFFC8152B),
                 borderRadius: BorderRadius.circular(18),
@@ -1084,7 +1084,7 @@ class _ReportsBottomNav extends StatelessWidget {
               child: const Icon(
                 Icons.add_rounded,
                 color: Colors.white,
-                size: 42,
+                size: 34,
               ),
             ),
           ),
@@ -1109,33 +1109,32 @@ class _BottomNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = _ReportsResponsive.of(context);
     final color = active ? const Color(0xFFC8152B) : const Color(0xFF6C6968);
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        width: responsive.clamp(70, 58, 76),
-        padding: EdgeInsets.symmetric(vertical: responsive.clamp(7, 6, 8)),
+        width: 54,
+        height: 50,
         decoration: active
             ? BoxDecoration(
                 color: const Color(0xFFFFD8D8),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(12),
               )
             : null,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: responsive.clamp(25, 22, 27)),
-            SizedBox(height: responsive.space(3)),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 2),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: color,
-                fontSize: responsive.font(12),
-                fontWeight: FontWeight.w800,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -1144,6 +1143,7 @@ class _BottomNavItem extends StatelessWidget {
     );
   }
 }
+
 String _formatRupiah(num value) {
   final rounded = value.round().abs().toString();
   final buffer = StringBuffer();

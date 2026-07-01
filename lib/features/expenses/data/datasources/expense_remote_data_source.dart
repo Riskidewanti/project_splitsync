@@ -21,6 +21,7 @@ class ExpenseRemoteDataSource {
   final SupabaseClient _client;
 
   Future<String> createExpense({
+    required String groupId,
     required String merchantName,
     required DateTime expenseDate,
     required List<ExpenseItemDraft> items,
@@ -34,14 +35,19 @@ class ExpenseRemoteDataSource {
     required double? currentUserPercentage,
   }) async {
     final String currentUserId = await _requireCurrentUserId();
+    if (!_isUuid(groupId)) {
+      throw const FormatException('Group ID tidak valid untuk pengeluaran.');
+    }
 
     final Map<String, dynamic> expenseRow = await _client
         .from('expenses')
         .insert(<String, dynamic>{
-          'group_id': null,
+          'group_id': groupId,
           'payer_id': currentUserId,
           'created_by': currentUserId,
-          'title': merchantName.trim().isEmpty ? 'Receipt' : merchantName.trim(),
+          'title': merchantName.trim().isEmpty
+              ? 'Receipt'
+              : merchantName.trim(),
           'merchant_name': merchantName.trim().isEmpty
               ? null
               : merchantName.trim(),
@@ -90,6 +96,12 @@ class ExpenseRemoteDataSource {
     });
 
     return expenseId;
+  }
+
+  bool _isUuid(String value) {
+    return RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(value);
   }
 
   Future<String> _requireCurrentUserId() async {

@@ -35,7 +35,7 @@ class GroupUserModel extends Equatable {
   factory GroupUserModel.fromJson(Map<String, dynamic> json) {
     return GroupUserModel(
       id: _requiredString(json['id'], 'id'),
-      displayName: json['display_name'] as String?,
+      displayName: (json['display_name'] ?? json['user_name']) as String?,
       email: json['email'] as String?,
       avatarUrl: json['avatar_url'] as String?,
     );

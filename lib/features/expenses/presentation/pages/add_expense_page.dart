@@ -729,6 +729,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
           totalAmount: amount,
           members: splitMembers,
           currentUserId: widget.userId,
+          groupId: widget.groupId,
         ),
       ),
     );

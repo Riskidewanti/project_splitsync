@@ -32,8 +32,10 @@ class SplitCalculationPage extends StatefulWidget {
     required this.totalAmount,
     required this.members,
     required this.currentUserId,
+    required this.groupId,
   });
 
+  final String groupId;
   final String merchantName;
   final DateTime? expenseDate;
   final List<ReceiptItem> items;
@@ -234,6 +236,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
             splitMethod: _selectedSplitMethod,
             currentUserSplitAmount: _currentUserSplitAmount,
             currentUserPercentage: _currentUserPercentage,
+            groupId: widget.groupId,
             note: null,
             tags: <String>['dinner', 'supplies'],
           );

@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../add_friends_page.dart';
+import '../../../../friend_request_service.dart';
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/models/group_user_model.dart';
 import '../../data/repositories/group_repository_impl.dart';
@@ -31,6 +33,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     remoteDataSource: GroupRemoteDataSourceImpl(),
   );
   late final List<_CategoryOption> _categories;
+  final List<GroupUserModel> _availableFriends = <GroupUserModel>[];
   final List<GroupUserModel> _selectedMembers = <GroupUserModel>[];
   List<GroupUserModel> _memberSuggestions = const <GroupUserModel>[];
   Uint8List? _photoBytes;
@@ -39,7 +42,9 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   int _selectedCategoryIndex = 1;
   bool _isSubmitting = false;
   bool _isPickingPhoto = false;
+  bool _isLoadingFriends = true;
   bool _isSearchingMembers = false;
+  String? _friendsLoadError;
   int _memberSearchVersion = 0;
 
   @override
@@ -55,6 +60,49 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         isCustomAction: true,
       ),
     ];
+    _loadFriends();
+  }
+
+  Future<void> _loadFriends() async {
+    setState(() {
+      _isLoadingFriends = true;
+      _friendsLoadError = null;
+    });
+
+    try {
+      final List<FriendProfile> friends = await FriendRequestService.friends();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _availableFriends
+          ..clear()
+          ..addAll(friends.map(_friendToGroupUser));
+        _isLoadingFriends = false;
+      });
+      _searchMembers(_searchController.text);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _availableFriends.clear();
+        _memberSuggestions = const <GroupUserModel>[];
+        _isLoadingFriends = false;
+        _friendsLoadError = error.toString();
+      });
+    }
+  }
+
+  GroupUserModel _friendToGroupUser(FriendProfile friend) {
+    return GroupUserModel(
+      id: friend.id,
+      displayName: friend.name,
+      email: friend.email.isEmpty ? null : friend.email,
+      avatarUrl: friend.avatarUrl.isEmpty ? null : friend.avatarUrl,
+    );
   }
 
   Future<void> _handleCategoryTap(int index) async {
@@ -134,6 +182,14 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       return;
     }
 
+    if (_availableFriends.isEmpty) {
+      setState(() {
+        _memberSuggestions = const <GroupUserModel>[];
+        _isSearchingMembers = false;
+      });
+      return;
+    }
+
     setState(() => _isSearchingMembers = true);
     await Future<void>.delayed(const Duration(milliseconds: 300));
 
@@ -142,9 +198,15 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     }
 
     try {
-      final List<GroupUserModel> users = await _groupRepository.searchUsers(
-        trimmedQuery,
-      );
+      final String normalizedQuery = trimmedQuery.toLowerCase();
+      final List<GroupUserModel> users = _availableFriends.where((
+        GroupUserModel user,
+      ) {
+        final String name = user.label.toLowerCase();
+        final String email = (user.email ?? '').toLowerCase();
+        return name.contains(normalizedQuery) ||
+            email.contains(normalizedQuery);
+      }).toList();
 
       if (!mounted || version != _memberSearchVersion) {
         return;
@@ -195,6 +257,19 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         (GroupUserModel selectedUser) => selectedUser.id == user.id,
       );
     });
+    _searchMembers(_searchController.text);
+  }
+
+  Future<void> _openAddFriendsPage() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AddFriendsPage()));
+
+    if (!mounted) {
+      return;
+    }
+
+    await _loadFriends();
   }
 
   String _contentTypeFor(String fileName) {
@@ -225,13 +300,21 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
     try {
       String? photoUrl;
+      bool photoSkipped = false;
       final Uint8List? photoBytes = _photoBytes;
       if (photoBytes != null) {
-        photoUrl = await _groupRepository.uploadGroupPhoto(
-          bytes: photoBytes,
-          fileName: _photoName ?? 'group_photo.jpg',
-          contentType: _photoContentType ?? 'image/jpeg',
-        );
+        try {
+          photoUrl = await _groupRepository.uploadGroupPhoto(
+            bytes: photoBytes,
+            fileName: _photoName ?? 'group_photo.jpg',
+            contentType: _photoContentType ?? 'image/jpeg',
+          );
+        } catch (error) {
+          if (!_isGroupPhotoUploadUnavailable(error)) {
+            rethrow;
+          }
+          photoSkipped = true;
+        }
       }
 
       await _groupRepository.createGroup(
@@ -244,6 +327,18 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
       if (!mounted) {
         return;
+      }
+
+      if (photoSkipped) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Grup dibuat tanpa foto. Storage group-photos belum siap.',
+              ),
+            ),
+          );
       }
 
       Navigator.of(context).pop(true);
@@ -260,6 +355,17 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  bool _isGroupPhotoUploadUnavailable(Object error) {
+    final String message = error.toString().toLowerCase();
+    return message.contains('bucket not found') ||
+        message.contains('row-level security policy') ||
+        message.contains('unauthorized') ||
+        message.contains('statuscode: 403') ||
+        message.contains('status code: 403') ||
+        message.contains('statuscode: 404') ||
+        message.contains('status code: 404');
   }
 
   @override
@@ -375,10 +481,15 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                   const SizedBox(height: 8),
                   _MemberSuggestionList(
                     members: _memberSuggestions,
+                    hasFriends: _availableFriends.isNotEmpty,
                     isLoading: _isSearchingMembers,
+                    isLoadingFriends: _isLoadingFriends,
                     hasQuery: _searchController.text.trim().length >= 2,
+                    errorMessage: _friendsLoadError,
                     primaryRed: _primaryRed,
                     onAdd: _addSelectedMember,
+                    onAddFriend: _openAddFriendsPage,
+                    onRetry: _loadFriends,
                   ),
                 ],
               ),
@@ -742,22 +853,54 @@ class _SelectedMemberList extends StatelessWidget {
 class _MemberSuggestionList extends StatelessWidget {
   const _MemberSuggestionList({
     required this.members,
+    required this.hasFriends,
     required this.isLoading,
+    required this.isLoadingFriends,
     required this.hasQuery,
+    required this.errorMessage,
     required this.primaryRed,
     required this.onAdd,
+    required this.onAddFriend,
+    required this.onRetry,
   });
 
   final List<GroupUserModel> members;
+  final bool hasFriends;
   final bool isLoading;
+  final bool isLoadingFriends;
   final bool hasQuery;
+  final String? errorMessage;
   final Color primaryRed;
   final ValueChanged<GroupUserModel> onAdd;
+  final VoidCallback onAddFriend;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     Widget child;
-    if (isLoading) {
+    final String? error = errorMessage;
+    if (isLoadingFriends) {
+      child = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    } else if (error != null) {
+      child = _MemberSearchActionMessage(
+        message: error,
+        buttonLabel: 'Coba Lagi',
+        icon: Icons.refresh_rounded,
+        primaryRed: primaryRed,
+        onPressed: onRetry,
+      );
+    } else if (!hasFriends) {
+      child = _MemberSearchActionMessage(
+        message: 'Belum ada teman di daftar kamu.',
+        buttonLabel: 'Tambah Teman',
+        icon: Icons.person_add_alt_1_rounded,
+        primaryRed: primaryRed,
+        onPressed: onAddFriend,
+      );
+    } else if (isLoading) {
       child = const Padding(
         padding: EdgeInsets.symmetric(vertical: 18),
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
@@ -767,7 +910,13 @@ class _MemberSuggestionList extends StatelessWidget {
         message: 'Ketik minimal 2 karakter untuk mencari teman.',
       );
     } else if (members.isEmpty) {
-      child = const _MemberSearchMessage(message: 'Tidak ada pengguna cocok.');
+      child = _MemberSearchActionMessage(
+        message: 'Tidak ada teman yang cocok.',
+        buttonLabel: 'Tambah Teman',
+        icon: Icons.person_add_alt_1_rounded,
+        primaryRed: primaryRed,
+        onPressed: onAddFriend,
+      );
     } else {
       child = Column(
         children: <Widget>[
@@ -795,6 +944,66 @@ class _MemberSuggestionList extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+class _MemberSearchActionMessage extends StatelessWidget {
+  const _MemberSearchActionMessage({
+    required this.message,
+    required this.buttonLabel,
+    required this.icon,
+    required this.primaryRed,
+    required this.onPressed,
+  });
+
+  final String message;
+  final String buttonLabel;
+  final IconData icon;
+  final Color primaryRed;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF9A8581),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 34,
+            child: FilledButton.icon(
+              onPressed: onPressed,
+              style: FilledButton.styleFrom(
+                backgroundColor: primaryRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              icon: Icon(icon, size: 16),
+              label: Text(
+                buttonLabel,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
