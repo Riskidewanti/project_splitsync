@@ -22,7 +22,12 @@ class Responsive {
     return math.min(widthScale, heightScale).clamp(0.82, 1.08);
   }
 
-  double space(double value) => value * scale;
+  double space(double value) {
+    final scaled = value * scale;
+    if (value <= 4) return scaled;
+    final int units = (scaled / 8).round().clamp(1, 12);
+    return units * 8.0;
+  }
 
   double font(double value) {
     final factor = isNarrow ? 0.9 : scale;

@@ -4,6 +4,7 @@ import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/models/group_member_model.dart';
 import '../../data/models/group_model.dart';
 import '../../data/repositories/group_repository_impl.dart';
+import '../../../../core/theme/app_theme.dart';
 import 'create_group_page.dart';
 import 'group_detail_page.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
@@ -171,10 +172,10 @@ class _GroupHomePageState extends State<GroupHomePage> {
               child: RefreshIndicator(
                 onRefresh: _refreshGroups,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(22, 32, 22, 116),
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),
                   children: <Widget>[
                     _GroupSectionHeader(onCreateGroup: _openCreateGroup),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpacing.md),
                     if (_isLoading)
                       const _LoadingState()
                     else if (_error != null)
@@ -213,7 +214,7 @@ class _GroupHomePageState extends State<GroupHomePage> {
                           ),
                         ),
                         if (index != _groups.length - 1)
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSpacing.xs),
                       ],
                   ],
                 ),
@@ -260,8 +261,8 @@ class _GroupHomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 102,
-      padding: const EdgeInsets.fromLTRB(30, 26, 28, 0),
+      height: 96,
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: <BoxShadow>[
@@ -277,7 +278,7 @@ class _GroupHomeHeader extends StatelessWidget {
         children: <Widget>[
           const Expanded(
             child: Padding(
-              padding: EdgeInsets.only(top: 34),
+              padding: EdgeInsets.only(top: 24),
               child: Text(
                 'SplitSync',
                 style: TextStyle(
@@ -289,7 +290,7 @@ class _GroupHomeHeader extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(top: 29),
+            padding: const EdgeInsets.only(top: 16),
             child: IconButton(
               constraints: const BoxConstraints.tightFor(width: 34, height: 34),
               padding: EdgeInsets.zero,
@@ -328,14 +329,14 @@ class _GroupSectionHeader extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 34,
+          height: 48,
           child: FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFC70F1B),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
             ),
             onPressed: onCreateGroup,
@@ -359,8 +360,8 @@ class _SplitSyncBottomNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 72,
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
+      height: AppSpacing.bottomNavHeight,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
@@ -427,17 +428,17 @@ class _BottomNavigationItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        width: 54,
-        height: 50,
+        width: 56,
+        height: 56,
         decoration: BoxDecoration(
           color: isActive ? const Color(0xFFFFD7D7) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Icon(icon, color: color, size: 20),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               label,
               maxLines: 1,
@@ -463,18 +464,18 @@ class _CenterCreateButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 54,
-      height: 50,
+      width: 56,
+      height: 56,
       child: Center(
         child: SizedBox(
-          width: 52,
-          height: 52,
+          width: 56,
+          height: 56,
           child: FloatingActionButton(
             elevation: 4,
             backgroundColor: const Color(0xFFC70F1B),
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
             onPressed: onCreateGroup,
             child: const Icon(Icons.add, size: 34),

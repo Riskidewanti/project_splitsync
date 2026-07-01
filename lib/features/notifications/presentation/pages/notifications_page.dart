@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../authentication/auth_service.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../friend_request_service.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -283,7 +284,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 onRefresh: _loadNotifications,
                 color: NotificationsPage.primaryColor,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 32),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
                   children: <Widget>[
                     if (_isLoading)
                       const _NotificationsLoadingState()
@@ -297,7 +298,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         pendingCount: _pendingActivityCount,
                         profiles: _summaryProfiles,
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: AppSpacing.lg),
                       if (_feedItems.isEmpty)
                         const _NotificationsEmptyState()
                       else
@@ -332,7 +333,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   );
                               },
                             ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: AppSpacing.sm),
                         ],
                     ],
                   ],
@@ -547,7 +548,7 @@ class _ActivitySummaryCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(28, 26, 24, 26),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         boxShadow: const <BoxShadow>[
           BoxShadow(
             color: Color(0x08000000),
@@ -632,7 +633,7 @@ class _FriendRequestCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(26, 24, 26, 24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         border: canRespond
             ? Border.all(color: const Color(0x35A60012), width: 1.2)
             : null,
@@ -766,7 +767,7 @@ class _NotificationActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: AppSpacing.buttonHeight,
       child: filled
           ? FilledButton(
               onPressed: onPressed,
@@ -774,7 +775,7 @@ class _NotificationActionButton extends StatelessWidget {
                 backgroundColor: NotificationsPage.primaryColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
               ),
               child: Text(
@@ -791,7 +792,7 @@ class _NotificationActionButton extends StatelessWidget {
                 foregroundColor: NotificationsPage.primaryColor,
                 side: const BorderSide(color: Color(0xFF7B5B61)),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
               ),
               child: Text(
@@ -818,16 +819,16 @@ class _NotificationSubtleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: AppSpacing.buttonHeight,
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
           foregroundColor: NotificationsPage.mutedColor,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          minimumSize: const Size(56, 40),
+          minimumSize: const Size(56, AppSpacing.buttonHeight),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
         ),
         child: Text(
@@ -858,7 +859,7 @@ class _DebtNotificationCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(26, 24, 26, 24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         boxShadow: const <BoxShadow>[
           BoxShadow(
             color: Color(0x08000000),
@@ -1090,7 +1091,7 @@ class _NotificationsEmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 42),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: const Column(
         children: <Widget>[
@@ -1155,7 +1156,7 @@ class _NotificationsErrorState extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Column(
         children: <Widget>[
@@ -1181,48 +1182,81 @@ class _NotificationsBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        height: 72,
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          border: Border.all(color: const Color(0xFFE8DCE0)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
-            _BottomItem(
-              icon: Icons.home_outlined,
-              label: 'Beranda',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
-            ),
-            _BottomItem(
-              icon: Icons.groups_2_outlined,
-              label: 'Grup',
-              onTap: () =>
-                  Navigator.of(context).pushReplacementNamed('/groups'),
-            ),
-            _BottomItem(
-              icon: Icons.insert_chart_outlined_rounded,
-              label: 'Laporan',
-              onTap: () =>
-                  Navigator.of(context).pushReplacementNamed('/reports'),
-            ),
-            _BottomItem(
-              icon: Icons.person_outline_rounded,
-              label: 'Profil',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
-            ),
-          ],
-        ),
+    return Container(
+      height: AppSpacing.bottomNavHeight,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          _BottomItem(
+            icon: Icons.home,
+            label: 'Beranda',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
+          ),
+          _BottomItem(
+            icon: Icons.groups_outlined,
+            label: 'Grup',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+          ),
+          _CenterAddButton(
+            onTap: () => Navigator.of(context).pushReplacementNamed('/scan'),
+          ),
+          _BottomItem(
+            icon: Icons.bar_chart,
+            label: 'Laporan',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+          ),
+          _BottomItem(
+            icon: Icons.person_outline,
+            label: 'Profil',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/profile'),
+          ),
+        ],
       ),
     );
   }
 }
 
+class _CenterAddButton extends StatelessWidget {
+  const _CenterAddButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: Center(
+        child: SizedBox(
+          width: 56,
+          height: 56,
+          child: FloatingActionButton(
+            elevation: 4,
+            backgroundColor: const Color(0xFFC70F1B),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+            ),
+            onPressed: onTap,
+            child: const Icon(Icons.add, size: 34),
+          ),
+        ),
+      ),
+    );
+  }
+}
 class _BottomItem extends StatelessWidget {
   const _BottomItem({
     required this.icon,
@@ -1240,13 +1274,13 @@ class _BottomItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: SizedBox(
-        width: 54,
-        height: 50,
+        width: 56,
+        height: 56,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Icon(icon, color: const Color(0xFF4B4548), size: 20),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               label,
               maxLines: 1,

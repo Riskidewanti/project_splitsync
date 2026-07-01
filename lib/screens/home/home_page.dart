@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../authentication/auth_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../features/expenses/presentation/pages/add_expense_page.dart';
 import '../../features/groups/data/datasources/group_remote_data_source.dart';
@@ -1175,8 +1176,8 @@ class _BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 72,
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
+      height: AppSpacing.bottomNavHeight,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
@@ -1222,18 +1223,18 @@ class _CenterSplitButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 54,
-      height: 50,
+      width: 56,
+      height: 56,
       child: Center(
         child: SizedBox(
-          width: 52,
-          height: 52,
+          width: 56,
+          height: 56,
           child: FloatingActionButton(
             elevation: 4,
             backgroundColor: const Color(0xFFC70F1B),
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
             onPressed: onCreateSplit,
             child: const Icon(Icons.add, size: 34),
@@ -1264,19 +1265,19 @@ class _NavItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        width: 54,
-        height: 50,
+        width: 56,
+        height: 56,
         decoration: selected
             ? BoxDecoration(
                 color: const Color(0xFFFFDADB),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadius.md),
               )
             : null,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 20, color: color),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             FittedBox(
               child: Text(
                 label,

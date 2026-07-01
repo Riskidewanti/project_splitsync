@@ -125,7 +125,7 @@ class _ReviewItemsPageState extends State<ReviewItemsPage> {
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
-                height: 54,
+                height: 48,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: _primary,

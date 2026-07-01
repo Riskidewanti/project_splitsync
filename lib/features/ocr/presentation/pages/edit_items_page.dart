@@ -392,7 +392,7 @@ class _EditItemsPageState extends State<EditItemsPage> {
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    height: 54,
+                height: 48,
                     child: FilledButton.icon(
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFFC70F1B),

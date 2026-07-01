@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
+
 class FriendsListCard extends StatelessWidget {
   final List<dynamic> friends;
   final double totalBill;
@@ -12,17 +14,18 @@ class FriendsListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     final splitAmount = totalBill / (friends.isEmpty ? 1 : friends.length);
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+          color: Colors.black.withValues(alpha: 0.02),
+          blurRadius: 8,
+          offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(color: Colors.grey.shade100),
@@ -39,29 +42,25 @@ class FriendsListCard extends StatelessWidget {
         ),
         itemBuilder: (context, index) {
           final friend = friends[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4.0),
-            child: ListTile(
-              leading: CircleAvatar(
-                radius: 22,
-                backgroundImage: NetworkImage(friend['avatar'] ?? ''),
-                backgroundColor: Colors.grey.shade200,
-              ),
-              title: Text(
-                friend['name'] ?? 'No Name',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  color: Colors.black87,
-                ),
-              ),
-              trailing: Text(
-                '\$${splitAmount.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: Color(0xFFC81B22),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
+          return ListTile(
+            minVerticalPadding: AppSpacing.xs,
+            leading: CircleAvatar(
+              radius: 22,
+              backgroundImage: NetworkImage(friend['avatar'] ?? ''),
+              backgroundColor: Colors.grey.shade200,
+            ),
+            title: Text(
+              friend['name'] ?? 'No Name',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.titleSmall?.copyWith(color: Colors.black87),
+            ),
+            trailing: Text(
+              '\$${splitAmount.toStringAsFixed(2)}',
+              textAlign: TextAlign.right,
+              style: textTheme.titleSmall?.copyWith(
+                color: const Color(0xFFC81B22),
+                fontWeight: FontWeight.w800,
               ),
             ),
           );

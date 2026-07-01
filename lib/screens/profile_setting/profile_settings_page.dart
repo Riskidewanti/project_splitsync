@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../authentication/auth_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../widgets/responsive.dart';
 import '../authentication/welcome_page.dart';
 import 'account_settings_page.dart';
@@ -190,7 +191,7 @@ class _IdentityCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         border: Border.all(color: const Color(0xFFECECEC)),
         boxShadow: const [
           BoxShadow(
@@ -295,7 +296,7 @@ class _StatCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         border: Border.all(color: const Color(0xFFECECEC)),
         boxShadow: const [
           BoxShadow(
@@ -350,7 +351,7 @@ class _SettingsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         border: Border.all(color: const Color(0xFFECECEC)),
         boxShadow: const [
           BoxShadow(
@@ -427,7 +428,7 @@ class _SettingsTile extends StatelessWidget {
               : () => Navigator.of(
                   context,
                 ).push(MaterialPageRoute(builder: (_) => destination!))),
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: responsive.clamp(24, 18, 26),
@@ -498,8 +499,8 @@ class _ProfileBottomNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        height: 72,
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
+        height: AppSpacing.bottomNavHeight,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -530,7 +531,7 @@ class _ProfileBottomNav extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 color: const Color(0xFFC8152B),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x33C8152B),
@@ -579,19 +580,19 @@ class _BottomItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 54,
-        height: 50,
+        width: 56,
+        height: 56,
         decoration: selected
             ? BoxDecoration(
                 color: const Color(0xFFFFDADB),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadius.md),
               )
             : null,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: color, size: 20),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             FittedBox(
               child: Text(
                 label,

@@ -357,7 +357,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                   const Spacer(),
                   SizedBox(
                     width: double.infinity,
-                    height: 54,
+            height: 48,
                     child: FilledButton(
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFFC70F1B),

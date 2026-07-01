@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../add_friends_page.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../friend_request_service.dart';
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/models/group_user_model.dart';
@@ -981,7 +982,7 @@ class _MemberSearchActionMessage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 34,
+            height: 48,
             child: FilledButton.icon(
               onPressed: onPressed,
               style: FilledButton.styleFrom(
@@ -989,7 +990,7 @@ class _MemberSearchActionMessage extends StatelessWidget {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
               ),
               icon: Icon(icon, size: 16),
@@ -1156,7 +1157,7 @@ class _CreateGroupButton extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(28, 12, 28, 22),
       child: SizedBox(
         width: double.infinity,
-        height: 46,
+        height: AppSpacing.buttonHeight,
         child: FilledButton.icon(
           onPressed: isLoading ? null : onPressed,
           style: FilledButton.styleFrom(

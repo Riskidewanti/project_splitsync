@@ -357,7 +357,7 @@ class _BottomActions extends StatelessWidget {
       children: <Widget>[
         Expanded(
           child: SizedBox(
-            height: 54,
+                height: 48,
             child: TextButton(
               style: TextButton.styleFrom(
                 backgroundColor: const Color(0xFFF4F5F7),
@@ -378,7 +378,7 @@ class _BottomActions extends StatelessWidget {
         Expanded(
           flex: 2,
           child: SizedBox(
-            height: 54,
+                height: 48,
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFE93635),

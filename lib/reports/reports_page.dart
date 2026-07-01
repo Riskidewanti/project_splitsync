@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/theme/app_theme.dart';
 import '../screens/profile_setting/profile_settings_page.dart';
 
 class ExpenseReport {
@@ -1017,75 +1018,62 @@ class _ReportsBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 72,
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
-      decoration: const BoxDecoration(
+      height: AppSpacing.bottomNavHeight,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 12,
-            offset: Offset(0, -4),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _BottomNavItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
-                onTap: () =>
-                    Navigator.of(context).pushReplacementNamed('/home'),
-              ),
-              _BottomNavItem(
-                icon: Icons.groups_rounded,
-                label: 'Groups',
-                onTap: () =>
-                    Navigator.of(context).pushReplacementNamed('/groups'),
-              ),
-              const SizedBox(width: 54),
-              const _BottomNavItem(
-                icon: Icons.insert_chart_rounded,
-                label: 'Reports',
-                active: true,
-              ),
-              _BottomNavItem(
-                icon: Icons.person_outline_rounded,
-                label: 'Profile',
-                onTap: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) => const ProfileSettingsPage(),
-                  ),
-                ),
-              ),
-            ],
+          _BottomNavItem(
+            icon: Icons.home_rounded,
+            label: 'Beranda',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
           ),
-          Positioned(
-            top: 0,
-            child: Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: const Color(0xFFC8152B),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x30000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.add_rounded,
-                color: Colors.white,
-                size: 34,
-              ),
+          _BottomNavItem(
+            icon: Icons.groups_rounded,
+            label: 'Grup',
+            onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+          ),
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFFC8152B),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x30000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 5),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.add_rounded,
+              color: Colors.white,
+              size: 34,
+            ),
+          ),
+          const _BottomNavItem(
+            icon: Icons.insert_chart_rounded,
+            label: 'Laporan',
+            active: true,
+          ),
+          _BottomNavItem(
+            icon: Icons.person_outline_rounded,
+            label: 'Profil',
+            onTap: () => Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const ProfileSettingsPage()),
             ),
           ),
         ],
@@ -1114,27 +1102,27 @@ class _BottomNavItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        width: 54,
-        height: 50,
+        width: 56,
+        height: 56,
         decoration: active
             ? BoxDecoration(
                 color: const Color(0xFFFFD8D8),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadius.md),
               )
             : null,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: color, size: 20),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+            const SizedBox(height: 4),
+            FittedBox(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],

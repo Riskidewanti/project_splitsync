@@ -384,7 +384,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
         children: <Widget>[
           Expanded(
             child: SizedBox(
-              height: 54,
+            height: 48,
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFE2E5EA)),
@@ -407,7 +407,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
           const SizedBox(width: 12),
           Expanded(
             child: SizedBox(
-              height: 54,
+            height: 48,
               child: FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFFC70F1B),

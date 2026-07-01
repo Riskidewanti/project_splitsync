@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/models/group_expense_model.dart';
@@ -500,14 +501,14 @@ class _ActionButtons extends StatelessWidget {
       children: <Widget>[
         Expanded(
           child: SizedBox(
-            height: 40,
+            height: AppSpacing.buttonHeight,
             child: FilledButton.icon(
               onPressed: () {},
               style: FilledButton.styleFrom(
                 backgroundColor: GroupDetailPage.primaryColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
               ),
               icon: const Icon(Icons.payments_outlined, size: 19),
@@ -521,14 +522,14 @@ class _ActionButtons extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
-            height: 40,
+            height: AppSpacing.buttonHeight,
             child: OutlinedButton.icon(
               onPressed: () {},
               style: OutlinedButton.styleFrom(
                 foregroundColor: GroupDetailPage.textDarkColor,
                 side: const BorderSide(color: GroupDetailPage.borderColor),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
               ),
               icon: const Icon(Icons.file_download_outlined, size: 19),

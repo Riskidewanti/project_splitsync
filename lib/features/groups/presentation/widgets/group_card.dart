@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency_formatter.dart';
 
 enum GroupCardStatusStyle { red, gray, blue }
@@ -27,33 +28,32 @@ class GroupCard extends StatelessWidget {
   final int extraMemberCount;
 
   @override
-Widget build(BuildContext context) {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFFE7E0DC)),
-      boxShadow: <BoxShadow>[
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _GroupIconTile(icon: icon),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2),
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: const Color(0xFFE7E0DC)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _GroupIconTile(icon: icon),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -61,61 +61,56 @@ Widget build(BuildContext context) {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF111827),
-                        fontSize: 14,
+                      style: textTheme.titleSmall?.copyWith(
+                        color: const Color(0xFF111827),
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF6F625F),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF6F625F),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            _AmountStatus(
-              amount: amount,
-              statusLabel: statusLabel,
-              statusStyle: statusStyle,
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 16),
-
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _MemberAvatarRow(
-                initials: memberInitials,
-                extraCount: extraMemberCount,
+              const SizedBox(width: AppSpacing.xs),
+              _AmountStatus(
+                amount: amount,
+                statusLabel: statusLabel,
+                statusStyle: statusStyle,
               ),
-            ),
-            const Icon(
-              Icons.chevron_right,
-              color: Color(0xFF6B4D49),
-              size: 24,
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _MemberAvatarRow(
+                  initials: memberInitials,
+                  extraCount: extraMemberCount,
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: Color(0xFF6B4D49),
+                size: 24,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _GroupIconTile extends StatelessWidget {
   const _GroupIconTile({required this.icon});
+
   final IconData icon;
 
   @override
@@ -125,7 +120,7 @@ class _GroupIconTile extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         color: const Color(0xFFF3F2F1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Icon(icon, size: 20, color: const Color(0xFF6B4D49)),
     );
@@ -156,30 +151,32 @@ class _AmountStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: <Widget>[
         Text(
           formatRupiah(amount),
-          style: const TextStyle(
-            color: Color(0xFF111827),
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+          textAlign: TextAlign.right,
+          style: textTheme.titleSmall?.copyWith(
+            color: const Color(0xFF111827),
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xs),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: _statusColor().withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Text(
             statusLabel,
-            style: TextStyle(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.labelMedium?.copyWith(
               color: _statusColor(),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -190,41 +187,57 @@ class _AmountStatus extends StatelessWidget {
 
 class _MemberAvatarRow extends StatelessWidget {
   const _MemberAvatarRow({required this.initials, required this.extraCount});
+
   final List<String> initials;
   final int extraCount;
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> chips = [];
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final List<Widget> chips = <Widget>[];
+
     for (var i = 0; i < initials.length; i++) {
-      chips.add(Container(
-        margin: const EdgeInsets.only(right: 6),
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3F2F1),
-          borderRadius: BorderRadius.circular(16),
+      chips.add(
+        Padding(
+          padding: const EdgeInsets.only(right: AppSpacing.xs),
+          child: _AvatarChip(label: initials[i], textTheme: textTheme),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          initials[i],
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-        ),
-      ));
+      );
     }
+
     if (extraCount > 0) {
-      chips.add(Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: const Color(0xFFECECEC),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.center,
-        child: Text('+$extraCount', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-      ));
+      chips.add(_AvatarChip(label: '+$extraCount', textTheme: textTheme));
     }
 
     return Row(children: chips);
+  }
+}
+
+class _AvatarChip extends StatelessWidget {
+  const _AvatarChip({required this.label, required this.textTheme});
+
+  final String label;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 32,
+      height: 32,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF3F2F1),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: textTheme.labelMedium?.copyWith(
+          color: const Color(0xFF111827),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
 }

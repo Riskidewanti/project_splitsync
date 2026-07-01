@@ -7,6 +7,7 @@ import 'add_friends_page.dart';
 import 'authentication/auth_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/services/local_notification_service.dart';
+import 'core/theme/app_theme.dart';
 import 'features/notifications/presentation/pages/notifications_page.dart';
 import 'features/ocr/presentation/pages/scan_page.dart';
 import 'features/groups/presentation/pages/group_home_page.dart';
@@ -82,32 +83,7 @@ class SplitSyncApp extends StatelessWidget {
     return MaterialApp(
       title: 'SplitSync',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFFFCF7),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFC8152B),
-          primary: const Color(0xFFC8152B),
-          secondary: const Color(0xFF001A35),
-          surface: Colors.white,
-        ),
-        fontFamily: 'Arial',
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(
-            color: Color(0xFF001A35),
-            fontWeight: FontWeight.w800,
-          ),
-          headlineMedium: TextStyle(
-            color: Color(0xFF001A35),
-            fontWeight: FontWeight.w800,
-          ),
-          titleLarge: TextStyle(
-            color: Color(0xFF001A35),
-            fontWeight: FontWeight.w800,
-          ),
-          bodyMedium: TextStyle(color: Color(0xFF585858)),
-        ),
-      ),
+      theme: AppTheme.light,
       home: const SplashScreen(),
       routes: {
         '/splash': (_) => const SplashScreen(),

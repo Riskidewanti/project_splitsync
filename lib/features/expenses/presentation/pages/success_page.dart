@@ -129,7 +129,7 @@ class _SuccessIndicator extends StatelessWidget {
         ),
         child: Container(
           width: 54,
-          height: 54,
+              height: 48,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,

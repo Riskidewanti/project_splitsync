@@ -479,7 +479,7 @@ class _BottomButton extends StatelessWidget {
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
       child: SizedBox(
-        height: 54,
+        height: 48,
         child: FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFC70F1B),
