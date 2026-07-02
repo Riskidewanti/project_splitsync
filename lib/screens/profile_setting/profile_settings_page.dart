@@ -81,17 +81,17 @@ class _ProfileBody extends StatelessWidget {
         Expanded(
           child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
-              responsive.clamp(38, 24, 42),
+              responsive.clamp(24, 20, 28),
               responsive.space(24),
-              responsive.clamp(38, 24, 42),
-              responsive.space(28),
+              responsive.clamp(24, 20, 28),
+              responsive.space(120),
             ),
             child: ResponsivePage(
               maxWidth: 430,
               child: Column(
                 children: [
                   _IdentityCard(profile: profile),
-                  SizedBox(height: responsive.space(26)),
+                  SizedBox(height: responsive.space(18)),
                   Row(
                     children: [
                       Expanded(
@@ -101,7 +101,7 @@ class _ProfileBody extends StatelessWidget {
                           accent: true,
                         ),
                       ),
-                      SizedBox(width: responsive.space(18)),
+                      SizedBox(width: responsive.space(12)),
                       Expanded(
                         child: _StatCard(
                           value: _formatNumber(profile.totalSharedExpense),
@@ -110,7 +110,7 @@ class _ProfileBody extends StatelessWidget {
                       ),
                     ],
                   ),
-                  SizedBox(height: responsive.space(28)),
+                  SizedBox(height: responsive.space(18)),
                   _SettingsCard(onLogout: onLogout),
                 ],
               ),
@@ -141,20 +141,20 @@ class _ProfileAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: responsive.clamp(116, 96, 118),
+      height: 102,
       color: Colors.white,
-      padding: EdgeInsets.symmetric(horizontal: responsive.clamp(28, 22, 34)),
+      padding: const EdgeInsets.fromLTRB(24, 26, 24, 0),
       child: Row(
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: Icon(
               Icons.arrow_back_rounded,
-              size: responsive.clamp(32, 28, 34),
+              size: responsive.clamp(26, 24, 28),
               color: const Color(0xFF111B2C),
             ),
           ),
-          SizedBox(width: responsive.space(62)),
+          SizedBox(width: responsive.space(12)),
           Expanded(
             child: Text(
               'Pengaturan Profil',
@@ -162,7 +162,7 @@ class _ProfileAppBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: const Color(0xFF111B2C),
-                fontSize: responsive.font(27),
+                fontSize: responsive.font(20),
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -184,10 +184,10 @@ class _IdentityCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
-        responsive.clamp(24, 20, 28),
-        responsive.clamp(38, 32, 42),
-        responsive.clamp(24, 20, 28),
-        responsive.clamp(34, 28, 38),
+        responsive.clamp(20, 18, 22),
+        responsive.clamp(26, 22, 28),
+        responsive.clamp(20, 18, 22),
+        responsive.clamp(24, 20, 26),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -204,7 +204,7 @@ class _IdentityCard extends StatelessWidget {
       child: Column(
         children: [
           _Avatar(profile: profile),
-          SizedBox(height: responsive.space(28)),
+          SizedBox(height: responsive.space(18)),
           Text(
             profile.userName.isEmpty ? 'Pengguna SplitSync' : profile.userName,
             textAlign: TextAlign.center,
@@ -212,11 +212,11 @@ class _IdentityCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: const Color(0xFF111111),
-              fontSize: responsive.font(36),
+              fontSize: responsive.font(24),
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: responsive.space(8)),
+          SizedBox(height: responsive.space(6)),
           Text(
             profile.email,
             textAlign: TextAlign.center,
@@ -224,7 +224,7 @@ class _IdentityCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: const Color(0xFF6A6666),
-              fontSize: responsive.font(21),
+              fontSize: responsive.font(14),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -246,8 +246,8 @@ class _Avatar extends StatelessWidget {
         ? profile.userName.trim().substring(0, 1).toUpperCase()
         : 'S';
     return Container(
-      width: responsive.clamp(116, 96, 124),
-      height: responsive.clamp(116, 96, 124),
+      width: responsive.clamp(88, 80, 96),
+      height: responsive.clamp(88, 80, 96),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xFFFFDDE0),
@@ -264,7 +264,7 @@ class _Avatar extends StatelessWidget {
                 initials,
                 style: TextStyle(
                   color: const Color(0xFFC8152B),
-                  fontSize: responsive.font(42),
+                  fontSize: responsive.font(32),
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -289,10 +289,10 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final responsive = Responsive.of(context);
     return Container(
-      height: responsive.clamp(160, 138, 166),
+      height: responsive.clamp(118, 108, 124),
       padding: EdgeInsets.symmetric(
-        horizontal: responsive.clamp(14, 10, 16),
-        vertical: responsive.clamp(22, 18, 24),
+        horizontal: responsive.clamp(12, 10, 14),
+        vertical: responsive.clamp(16, 14, 18),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -316,13 +316,13 @@ class _StatCard extends StatelessWidget {
                 color: accent
                     ? const Color(0xFFC8152B)
                     : const Color(0xFF111111),
-                fontSize: responsive.font(54),
+                fontSize: responsive.font(34),
                 fontWeight: FontWeight.w900,
                 height: 1,
               ),
             ),
           ),
-          SizedBox(height: responsive.space(13)),
+          SizedBox(height: responsive.space(8)),
           Text(
             label,
             textAlign: TextAlign.center,
@@ -330,7 +330,7 @@ class _StatCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: const Color(0xFF5A5656),
-              fontSize: responsive.font(17),
+              fontSize: responsive.font(12),
               fontWeight: FontWeight.w600,
               height: 1.18,
             ),
@@ -431,23 +431,23 @@ class _SettingsTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Padding(
         padding: EdgeInsets.symmetric(
-          horizontal: responsive.clamp(24, 18, 26),
-          vertical: responsive.clamp(20, 16, 22),
+          horizontal: responsive.clamp(18, 16, 20),
+          vertical: responsive.clamp(14, 12, 16),
         ),
         child: Row(
           children: [
             CircleAvatar(
-              radius: responsive.clamp(26, 22, 28),
+              radius: responsive.clamp(20, 18, 22),
               backgroundColor: danger
                   ? const Color(0xFFFFDADB)
                   : const Color(0xFFECECEC),
               child: Icon(
                 icon,
                 color: color,
-                size: responsive.clamp(27, 23, 29),
+                size: responsive.clamp(20, 18, 22),
               ),
             ),
-            SizedBox(width: responsive.space(20)),
+            SizedBox(width: responsive.space(14)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,19 +458,19 @@ class _SettingsTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: color,
-                      fontSize: responsive.font(21),
+                      fontSize: responsive.font(15),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   if (subtitle.isNotEmpty) ...[
-                    SizedBox(height: responsive.space(3)),
+                    SizedBox(height: responsive.space(2)),
                     Text(
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: const Color(0xFF5F5A5A),
-                        fontSize: responsive.font(16),
+                        fontSize: responsive.font(12),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -482,7 +482,7 @@ class _SettingsTile extends StatelessWidget {
               Icon(
                 Icons.chevron_right_rounded,
                 color: const Color(0xFF5A5656),
-                size: responsive.clamp(30, 26, 32),
+                size: responsive.clamp(24, 22, 26),
               ),
           ],
         ),
@@ -499,8 +499,8 @@ class _ProfileBottomNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        height: AppSpacing.bottomNavHeight,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        height: 72,
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -531,7 +531,7 @@ class _ProfileBottomNav extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 color: const Color(0xFFC8152B),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x33C8152B),
@@ -580,8 +580,8 @@ class _BottomItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 56,
-        height: 56,
+        width: 54,
+        height: 50,
         decoration: selected
             ? BoxDecoration(
                 color: const Color(0xFFFFDADB),
@@ -592,7 +592,7 @@ class _BottomItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: color, size: 20),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             FittedBox(
               child: Text(
                 label,

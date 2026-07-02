@@ -6,13 +6,21 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../features/expenses/presentation/pages/add_expense_page.dart';
 import '../../features/groups/data/datasources/group_remote_data_source.dart';
+import '../../features/groups/data/models/group_expense_model.dart';
 import '../../features/groups/data/models/group_member_model.dart';
 import '../../features/groups/data/models/group_model.dart';
 import '../../features/groups/data/repositories/group_repository_impl.dart';
+import '../../features/groups/presentation/pages/create_group_page.dart';
 import '../../features/groups/presentation/pages/group_detail_page.dart';
 import '../../features/groups/presentation/widgets/group_card.dart';
+import '../../features/settlements/presentation/pages/person_payment_request_page.dart';
+import '../../features/settlements/presentation/pages/settlement_page.dart';
 import '../../widgets/responsive.dart';
 import '../profile_setting/profile_settings_page.dart';
+
+enum _ExpenseQuickAction { addExpense, createGroup }
+
+enum _PaymentRequestMode { group, person }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -40,6 +48,14 @@ class _HomePageState extends State<HomePage> {
   Future<List<_HomeGroupData>> _loadGroups() async {
     final List<GroupModel> groups = await _groupRepository.getGroups();
     return Future.wait(groups.take(2).map(_buildGroupData));
+  }
+
+  void _refreshHomeData() {
+    if (!mounted) return;
+    setState(() {
+      _groupsFuture = _loadGroups();
+      _dashboardFuture = _loadDashboardData();
+    });
   }
 
   Future<_HomeDashboardData> _loadDashboardData() async {
@@ -146,21 +162,331 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<_HomeGroupData> _buildGroupData(GroupModel group) async {
-    final List<GroupMemberModel> members = await _groupRepository
-        .getGroupMembers(group.id);
-    return _HomeGroupData(group: group, members: members);
+    final List<Object> results = await Future.wait<Object>(<Future<Object>>[
+      _groupRepository.getGroupMembers(group.id),
+      _groupRepository.getGroupExpenses(group.id),
+    ]);
+
+    return _HomeGroupData(
+      group: group,
+      members: results[0] as List<GroupMemberModel>,
+      expenses: results[1] as List<GroupExpenseModel>,
+    );
   }
 
-  void _openGroupDetail(GroupModel group) {
-    Navigator.of(context).push(
+  Future<void> _openGroupDetail(GroupModel group) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => GroupDetailPage(groupId: group.id),
       ),
     );
+
+    _refreshHomeData();
   }
 
   void _openSplitBillOcr() {
     Navigator.of(context).pushNamed('/scan');
+  }
+
+  Future<void> _openCreateGroup() async {
+    final Object? created = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<bool>(builder: (_) => const CreateGroupPage()));
+
+    if (created == true && mounted) {
+      _refreshHomeData();
+    }
+  }
+
+  Future<void> _openPaymentRequest() async {
+    try {
+      final _PaymentRequestMode? mode = await _selectPaymentRequestMode();
+      if (!mounted || mode == null) return;
+
+      if (mode == _PaymentRequestMode.person) {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const PersonPaymentRequestPage(),
+          ),
+        );
+        return;
+      }
+
+      final String? currentUserId = await _groupRepository.getCurrentUserId();
+      if (!mounted) return;
+
+      if (currentUserId == null || currentUserId.trim().isEmpty) {
+        _showHomeMessage('Silakan masuk untuk meminta pembayaran.');
+        return;
+      }
+
+      final List<GroupModel> groups = await _groupRepository.getGroups();
+      if (!mounted) return;
+
+      if (groups.isEmpty) {
+        await _openCreateGroup();
+        return;
+      }
+
+      final GroupModel? selectedGroup = groups.length == 1
+          ? groups.first
+          : await _selectGroupForExpense(groups, title: 'Pilih Grup');
+      if (selectedGroup == null || !mounted) return;
+
+      final _PaymentRequestDetails? details = await _requestPaymentDetails();
+      if (details == null || !mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SettlementPage(
+            groupId: selectedGroup.id,
+            userId: currentUserId,
+            totalBill: details.amount,
+            billTitle: details.title,
+          ),
+        ),
+      );
+
+      _refreshHomeData();
+    } catch (error) {
+      if (!mounted) return;
+      _showHomeMessage('Gagal membuka minta pembayaran: $error');
+    }
+  }
+
+  Future<_PaymentRequestMode?> _selectPaymentRequestMode() {
+    return showModalBottomSheet<_PaymentRequestMode>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Minta Pembayaran',
+                  style: TextStyle(
+                    color: Color(0xFF111B2C),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.groups_outlined,
+                    color: Color(0xFFC8152B),
+                  ),
+                  title: const Text(
+                    'Request ke Grup',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('Pilih grup lalu bagi nominal request'),
+                  onTap: () =>
+                      Navigator.of(context).pop(_PaymentRequestMode.group),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.person_add_alt_1_outlined,
+                    color: Color(0xFFC8152B),
+                  ),
+                  title: const Text(
+                    'Request per Orang',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('Minta pembayaran ke satu teman'),
+                  onTap: () =>
+                      Navigator.of(context).pop(_PaymentRequestMode.person),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<_PaymentRequestDetails?> _requestPaymentDetails() async {
+    final TextEditingController titleController = TextEditingController(
+      text: 'Minta Pembayaran',
+    );
+    final TextEditingController amountController = TextEditingController();
+    String? errorText;
+
+    final _PaymentRequestDetails? details = await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  18,
+                  20,
+                  MediaQuery.viewInsetsOf(context).bottom + 24,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'Minta Pembayaran',
+                      style: TextStyle(
+                        color: Color(0xFF111B2C),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: titleController,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Judul',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Nominal',
+                        prefixText: 'Rp ',
+                        errorText: errorText,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFC8152B),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          final double amount = _parseCurrencyInput(
+                            amountController.text,
+                          );
+                          final String title = titleController.text.trim();
+
+                          if (amount <= 0) {
+                            setModalState(() {
+                              errorText = 'Nominal wajib lebih dari 0';
+                            });
+                            return;
+                          }
+
+                          Navigator.of(context).pop(
+                            _PaymentRequestDetails(
+                              title: title.isEmpty ? 'Minta Pembayaran' : title,
+                              amount: amount,
+                            ),
+                          );
+                        },
+                        child: const Text('Lanjutkan'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    titleController.dispose();
+    amountController.dispose();
+    return details;
+  }
+
+  Future<void> _openExpenseQuickOptions() async {
+    final action = await showModalBottomSheet<_ExpenseQuickAction>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Tambah Pengeluaran',
+                  style: TextStyle(
+                    color: Color(0xFF111B2C),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.receipt_long_outlined,
+                    color: Color(0xFFC8152B),
+                  ),
+                  title: const Text(
+                    'Tambah Pengeluaran Manual',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('Pilih grup lalu isi detail transaksi'),
+                  onTap: () =>
+                      Navigator.of(context).pop(_ExpenseQuickAction.addExpense),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.group_add_outlined,
+                    color: Color(0xFFC8152B),
+                  ),
+                  title: const Text(
+                    'Buat Grup Baru',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text('Buka halaman pembuatan grup'),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pop(_ExpenseQuickAction.createGroup),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case _ExpenseQuickAction.addExpense:
+        await _openManualExpense();
+      case _ExpenseQuickAction.createGroup:
+        await _openCreateGroup();
+    }
   }
 
   Future<void> _openManualExpense() async {
@@ -177,9 +503,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
 
       if (groups.isEmpty) {
-        _showHomeMessage(
-          'Buat grup terlebih dahulu sebelum menambah pengeluaran.',
-        );
+        await _openCreateGroup();
         return;
       }
 
@@ -192,7 +516,7 @@ class _HomePageState extends State<HomePage> {
           .getGroupMembers(selectedGroup.id);
       if (!mounted) return;
 
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => AddExpensePage(
             groupId: selectedGroup.id,
@@ -208,13 +532,18 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       );
+
+      _refreshHomeData();
     } catch (error) {
       if (!mounted) return;
       _showHomeMessage('Gagal membuka tambah pengeluaran: $error');
     }
   }
 
-  Future<GroupModel?> _selectGroupForExpense(List<GroupModel> groups) {
+  Future<GroupModel?> _selectGroupForExpense(
+    List<GroupModel> groups, {
+    String title = 'Pilih Grup',
+  }) {
     return showModalBottomSheet<GroupModel>(
       context: context,
       backgroundColor: Colors.white,
@@ -230,11 +559,11 @@ class _HomePageState extends State<HomePage> {
             separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (BuildContext context, int index) {
               if (index == 0) {
-                return const Padding(
-                  padding: EdgeInsets.only(bottom: 14),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
                   child: Text(
-                    'Pilih Grup',
-                    style: TextStyle(
+                    title,
+                    style: const TextStyle(
                       color: Color(0xFF111B2C),
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -341,7 +670,10 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       _BalanceCard(dataFuture: _dashboardFuture),
                       SizedBox(height: responsive.space(22)),
-                      _QuickActions(onAddExpense: _openManualExpense),
+                      _QuickActions(
+                        onAddExpense: _openExpenseQuickOptions,
+                        onRequestPayment: _openPaymentRequest,
+                      ),
                       SizedBox(height: responsive.space(26)),
                       _SectionTitle(
                         title: 'Grup Teratas',
@@ -359,7 +691,12 @@ class _HomePageState extends State<HomePage> {
                         memberInitials: _memberInitials,
                       ),
                       SizedBox(height: responsive.space(26)),
-                      _ActivityPanel(dataFuture: _dashboardFuture),
+                      _ActivityPanel(
+                        dataFuture: _dashboardFuture,
+                        onViewAll: () => Navigator.of(
+                          context,
+                        ).pushReplacementNamed('/reports'),
+                      ),
                     ],
                   ),
                 ),
@@ -381,10 +718,40 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _HomeGroupData {
-  const _HomeGroupData({required this.group, required this.members});
+  const _HomeGroupData({
+    required this.group,
+    required this.members,
+    required this.expenses,
+  });
 
   final GroupModel group;
   final List<GroupMemberModel> members;
+  final List<GroupExpenseModel> expenses;
+
+  double get totalExpense {
+    return expenses.fold<double>(
+      0,
+      (double total, GroupExpenseModel expense) => total + expense.totalAmount,
+    );
+  }
+
+  String get statusLabel {
+    if (expenses.isEmpty) return 'Belum ada pengeluaran';
+    return '${expenses.length} pengeluaran';
+  }
+
+  GroupCardStatusStyle get statusStyle {
+    return expenses.isEmpty
+        ? GroupCardStatusStyle.gray
+        : GroupCardStatusStyle.red;
+  }
+}
+
+class _PaymentRequestDetails {
+  const _PaymentRequestDetails({required this.title, required this.amount});
+
+  final String title;
+  final double amount;
 }
 
 class _HomeDashboardData {
@@ -448,6 +815,14 @@ double _asDouble(Object? value) {
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value) ?? 0;
   return 0;
+}
+
+double _parseCurrencyInput(String value) {
+  final String normalized = value
+      .replaceAll(RegExp(r'[^0-9,\.]'), '')
+      .replaceAll('.', '')
+      .replaceAll(',', '.');
+  return double.tryParse(normalized) ?? 0;
 }
 
 DateTime? _asDateTime(Object? value) {
@@ -648,9 +1023,13 @@ class _BalanceMiniCard extends StatelessWidget {
 }
 
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.onAddExpense});
+  const _QuickActions({
+    required this.onAddExpense,
+    required this.onRequestPayment,
+  });
 
   final VoidCallback onAddExpense;
+  final VoidCallback onRequestPayment;
 
   @override
   Widget build(BuildContext context) {
@@ -681,6 +1060,7 @@ class _QuickActions extends StatelessWidget {
               width: itemWidth,
               icon: Icons.request_quote_outlined,
               label: 'Minta\nPembayaran',
+              onTap: onRequestPayment,
             ),
             _QuickAction(
               width: itemWidth,
@@ -865,9 +1245,9 @@ class _TopGroups extends StatelessWidget {
                 child: GroupCard(
                   title: topGroups[index].group.name,
                   subtitle: subtitleFor(topGroups[index].group),
-                  amount: 0,
-                  statusLabel: 'Belum ada saldo',
-                  statusStyle: GroupCardStatusStyle.gray,
+                  amount: topGroups[index].totalExpense,
+                  statusLabel: topGroups[index].statusLabel,
+                  statusStyle: topGroups[index].statusStyle,
                   icon: iconForGroup(topGroups[index].group.name),
                   memberInitials: memberInitials(topGroups[index].members),
                   extraMemberCount: topGroups[index].members.length > 3
@@ -952,9 +1332,10 @@ class GroupEmptyState extends StatelessWidget {
 }
 
 class _ActivityPanel extends StatelessWidget {
-  const _ActivityPanel({required this.dataFuture});
+  const _ActivityPanel({required this.dataFuture, required this.onViewAll});
 
   final Future<_HomeDashboardData> dataFuture;
+  final VoidCallback onViewAll;
 
   @override
   Widget build(BuildContext context) {
@@ -991,6 +1372,7 @@ class _ActivityPanel extends StatelessWidget {
                     title: 'Aktivitas Terbaru',
                     action: 'Lihat semua',
                     titleSize: responsive.font(24),
+                    onAction: onViewAll,
                   ),
                   SizedBox(height: responsive.space(26)),
                   if (snapshot.connectionState == ConnectionState.waiting)
