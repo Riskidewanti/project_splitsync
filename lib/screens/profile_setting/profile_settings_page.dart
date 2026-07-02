@@ -6,6 +6,9 @@ import '../../widgets/responsive.dart';
 import '../authentication/welcome_page.dart';
 import 'account_settings_page.dart';
 import 'notification_settings_page.dart';
+import '../home/home_page.dart';
+import '../../features/groups/presentation/pages/group_home_page.dart';
+import '../../reports/reports_page.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -491,6 +494,33 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
+class SmoothTransitionRoute<T> extends PageRouteBuilder<T> {
+  final Widget page;
+
+  SmoothTransitionRoute({required this.page})
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const curve = Curves.easeInOutCubic;
+            final CurvedAnimation curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: curve,
+            );
+            return FadeTransition(
+              opacity: curvedAnimation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.0, 0.02),
+                  end: Offset.zero,
+                ).animate(curvedAnimation),
+                child: child,
+              ),
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 250),
+        );
+}
+
 class _ProfileBottomNav extends StatelessWidget {
   const _ProfileBottomNav();
 
@@ -518,13 +548,16 @@ class _ProfileBottomNav extends StatelessWidget {
             _BottomItem(
               icon: Icons.home_rounded,
               label: 'Home',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
+              onTap: () => Navigator.of(context).pushReplacement(
+                SmoothTransitionRoute(page: const HomePage()),
+              ),
             ),
             _BottomItem(
               icon: Icons.groups_2_outlined,
               label: 'Groups',
-              onTap: () =>
-                  Navigator.of(context).pushReplacementNamed('/groups'),
+              onTap: () => Navigator.of(context).pushReplacement(
+                SmoothTransitionRoute(page: const GroupHomePage()),
+              ),
             ),
             Container(
               width: 52,
@@ -545,8 +578,9 @@ class _ProfileBottomNav extends StatelessWidget {
             _BottomItem(
               icon: Icons.analytics_outlined,
               label: 'Reports',
-              onTap: () =>
-                  Navigator.of(context).pushReplacementNamed('/reports'),
+              onTap: () => Navigator.of(context).pushReplacement(
+                SmoothTransitionRoute(page: const ReportsPage()),
+              ),
             ),
             const _BottomItem(
               icon: Icons.person_outline_rounded,

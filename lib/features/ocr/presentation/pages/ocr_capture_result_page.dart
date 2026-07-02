@@ -91,8 +91,8 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
             return OCRResultPage(
               merchant: merchant,
               total: total,
-              date: DateTime(2023, 10, 24),
-              category: 'Ditempat',
+              date: DateTime(2026, 12, 24),
+              category: 'Di Karoeke',
               items: items,
             );
           },

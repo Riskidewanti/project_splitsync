@@ -27,16 +27,16 @@ class GroupExpenseModel extends Equatable {
 
   factory GroupExpenseModel.fromJson(Map<String, dynamic> json) {
     return GroupExpenseModel(
-      id: _requiredString(json['id'], 'id'),
-      groupId: _requiredString(json['group_id'], 'group_id'),
-      payerId: _requiredString(json['payer_id'], 'payer_id'),
-      title: _requiredString(json['title'], 'title'),
-      merchantName: json['merchant_name'] as String?,
-      expenseDate: _requiredDateTime(json['expense_date'], 'expense_date'),
-      totalAmount: _requiredDouble(json['total_amount'], 'total_amount'),
-      currency: _requiredString(json['currency'], 'currency'),
-      status: _requiredString(json['status'], 'status'),
-      createdAt: _requiredDateTime(json['created_at'], 'created_at'),
+      id: _safeString(json['id'], ''),
+      groupId: _safeString(json['group_id'], ''),
+      payerId: _safeString(json['payer_id'], ''),
+      title: _safeString(json['title'], 'Pengeluaran Tanpa Judul'),
+      merchantName: _nullableStringCoerce(json['merchant_name']),
+      expenseDate: _safeDateTime(json['expense_date']) ?? DateTime.now(),
+      totalAmount: _safeDouble(json['total_amount'], 0.0),
+      currency: _safeString(json['currency'], 'IDR'),
+      status: _safeString(json['status'], 'active'),
+      createdAt: _safeDateTime(json['created_at']) ?? DateTime.now(),
     );
   }
 
@@ -55,30 +55,37 @@ class GroupExpenseModel extends Equatable {
   ];
 }
 
-String _requiredString(Object? value, String key) {
-  if (value is String && value.isNotEmpty) {
-    return value;
-  }
-
-  throw FormatException('Missing required string field: $key');
+String _safeString(Object? value, String fallback) {
+  if (value == null) return fallback;
+  final String str = value.toString().trim();
+  return str.isEmpty ? fallback : str;
 }
 
-DateTime _requiredDateTime(Object? value, String key) {
-  if (value is DateTime) {
-    return value;
-  }
-
-  if (value is String && value.isNotEmpty) {
-    return DateTime.parse(value);
-  }
-
-  throw FormatException('Missing required DateTime field: $key');
+String? _nullableStringCoerce(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value.isEmpty ? null : value;
+  return value.toString();
 }
 
-double _requiredDouble(Object? value, String key) {
-  if (value is num) {
-    return value.toDouble();
+DateTime? _safeDateTime(Object? value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  try {
+    final String str = value.toString().trim();
+    if (str.isEmpty) return null;
+    return DateTime.parse(str);
+  } catch (_) {
+    return null;
   }
-
-  throw FormatException('Missing required number field: $key');
 }
+
+double _safeDouble(Object? value, double fallback) {
+  if (value == null) return fallback;
+  if (value is num) return value.toDouble();
+  try {
+    return double.parse(value.toString());
+  } catch (_) {
+    return fallback;
+  }
+}
+

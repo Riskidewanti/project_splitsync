@@ -8,11 +8,13 @@ import '../../data/models/group_member_model.dart';
 import '../../data/models/group_model.dart';
 import '../../data/repositories/group_repository_impl.dart';
 import '../../../expenses/presentation/pages/add_expense_page.dart';
+import '../../domain/repositories/group_repository.dart';
 
 class GroupDetailPage extends StatefulWidget {
-  const GroupDetailPage({super.key, required this.groupId});
+  const GroupDetailPage({super.key, required this.groupId, this.repository});
 
   final String groupId;
+  final GroupRepository? repository;
 
   static const Color primaryColor = Color(0xFFC70F1B);
   static const Color backgroundColor = Color(0xFFFBF7F4);
@@ -24,9 +26,7 @@ class GroupDetailPage extends StatefulWidget {
 }
 
 class _GroupDetailPageState extends State<GroupDetailPage> {
-  final GroupRepositoryImpl _groupRepository = GroupRepositoryImpl(
-    remoteDataSource: GroupRemoteDataSourceImpl(),
-  );
+  late final GroupRepository _groupRepository;
 
   GroupModel? _group;
   List<GroupMemberModel> _members = const <GroupMemberModel>[];
@@ -39,6 +39,9 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
   @override
   void initState() {
     super.initState();
+    _groupRepository = widget.repository ?? GroupRepositoryImpl(
+      remoteDataSource: GroupRemoteDataSourceImpl(),
+    );
     _loadGroupDetail();
   }
 

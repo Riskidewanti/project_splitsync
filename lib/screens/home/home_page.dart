@@ -12,7 +12,9 @@ import '../../features/groups/data/models/group_model.dart';
 import '../../features/groups/data/repositories/group_repository_impl.dart';
 import '../../features/groups/presentation/pages/create_group_page.dart';
 import '../../features/groups/presentation/pages/group_detail_page.dart';
+import '../../features/groups/presentation/pages/group_home_page.dart';
 import '../../features/groups/presentation/widgets/group_card.dart';
+import '../../reports/reports_page.dart';
 import '../../features/settlements/presentation/pages/person_payment_request_page.dart';
 import '../../features/settlements/presentation/pages/settlement_page.dart';
 import '../../widgets/responsive.dart';
@@ -1549,6 +1551,33 @@ class _ActivityRow extends StatelessWidget {
   }
 }
 
+class SmoothTransitionRoute<T> extends PageRouteBuilder<T> {
+  final Widget page;
+
+  SmoothTransitionRoute({required this.page})
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const curve = Curves.easeInOutCubic;
+            final CurvedAnimation curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: curve,
+            );
+            return FadeTransition(
+              opacity: curvedAnimation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.0, 0.02),
+                  end: Offset.zero,
+                ).animate(curvedAnimation),
+                child: child,
+              ),
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 250),
+        );
+}
+
 class _BottomNav extends StatelessWidget {
   const _BottomNav({required this.onCreateSplit, required this.onProfile});
 
@@ -1578,13 +1607,17 @@ class _BottomNav extends StatelessWidget {
           _NavItem(
             icon: Icons.groups_outlined,
             label: 'Grup',
-            onTap: () => Navigator.of(context).pushReplacementNamed('/groups'),
+            onTap: () => Navigator.of(context).pushReplacement(
+              SmoothTransitionRoute(page: const GroupHomePage()),
+            ),
           ),
           _CenterSplitButton(onCreateSplit: onCreateSplit),
           _NavItem(
             icon: Icons.bar_chart,
             label: 'Laporan',
-            onTap: () => Navigator.of(context).pushReplacementNamed('/reports'),
+            onTap: () => Navigator.of(context).pushReplacement(
+              SmoothTransitionRoute(page: const ReportsPage()),
+            ),
           ),
           _NavItem(
             icon: Icons.person_outline,

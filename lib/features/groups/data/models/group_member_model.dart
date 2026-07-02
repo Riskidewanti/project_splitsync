@@ -77,24 +77,23 @@ class GroupMemberModel extends Equatable {
         : null;
 
     return GroupMemberModel(
-      id: _requiredString(json['id'], 'id'),
-      groupId: _requiredString(json['group_id'], 'group_id'),
-      userId: _requiredString(json['user_id'], 'user_id'),
+      id: _safeString(json['id'], ''),
+      groupId: _safeString(json['group_id'], ''),
+      userId: _safeString(json['user_id'], ''),
 
-      displayName:
-          (profile?['display_name'] ?? profile?['user_name']) as String?,
-      email: profile?['email'] as String?,
-      avatarUrl: profile?['avatar_url'] as String?,
-
-      invitedBy: json['invited_by'] as String?,
-      role: GroupMemberRole.fromValue(_requiredString(json['role'], 'role')),
-      status: GroupMemberStatus.fromValue(
-        _requiredString(json['status'], 'status'),
+      displayName: _nullableStringCoerce(
+        profile?['display_name'] ?? profile?['user_name'],
       ),
-      joinedAt: _nullableDateTime(json['joined_at']),
-      leftAt: _nullableDateTime(json['left_at']),
-      createdAt: _requiredDateTime(json['created_at'], 'created_at'),
-      updatedAt: _requiredDateTime(json['updated_at'], 'updated_at'),
+      email: _nullableStringCoerce(profile?['email']),
+      avatarUrl: _nullableStringCoerce(profile?['avatar_url']),
+
+      invitedBy: _nullableStringCoerce(json['invited_by']),
+      role: _safeRole(json['role']),
+      status: _safeStatus(json['status']),
+      joinedAt: _safeDateTime(json['joined_at']),
+      leftAt: _safeDateTime(json['left_at']),
+      createdAt: _safeDateTime(json['created_at']) ?? DateTime.now(),
+      updatedAt: _safeDateTime(json['updated_at']) ?? DateTime.now(),
     );
   }
 
@@ -176,35 +175,49 @@ class GroupMemberModel extends Equatable {
 
 const Object _sentinel = Object();
 
-String _requiredString(Object? value, String key) {
-  if (value is String && value.isNotEmpty) {
-    return value;
-  }
-
-  throw FormatException('Missing required string field: $key');
+String _safeString(Object? value, String fallback) {
+  if (value == null) return fallback;
+  final String str = value.toString().trim();
+  return str.isEmpty ? fallback : str;
 }
 
-DateTime _requiredDateTime(Object? value, String key) {
-  final DateTime? dateTime = _nullableDateTime(value);
-  if (dateTime != null) {
-    return dateTime;
-  }
-
-  throw FormatException('Missing required DateTime field: $key');
+String? _nullableStringCoerce(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value.isEmpty ? null : value;
+  return value.toString();
 }
 
-DateTime? _nullableDateTime(Object? value) {
-  if (value == null) {
+GroupMemberRole _safeRole(Object? value) {
+  if (value == null) return GroupMemberRole.member;
+  final String valStr = value.toString().trim().toLowerCase();
+  for (final role in GroupMemberRole.values) {
+    if (role.value.toLowerCase() == valStr) {
+      return role;
+    }
+  }
+  return GroupMemberRole.member;
+}
+
+GroupMemberStatus _safeStatus(Object? value) {
+  if (value == null) return GroupMemberStatus.active;
+  final String valStr = value.toString().trim().toLowerCase();
+  for (final status in GroupMemberStatus.values) {
+    if (status.value.toLowerCase() == valStr) {
+      return status;
+    }
+  }
+  return GroupMemberStatus.active;
+}
+
+DateTime? _safeDateTime(Object? value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  try {
+    final String str = value.toString().trim();
+    if (str.isEmpty) return null;
+    return DateTime.parse(str);
+  } catch (_) {
     return null;
   }
-
-  if (value is DateTime) {
-    return value;
-  }
-
-  if (value is String && value.isNotEmpty) {
-    return DateTime.parse(value);
-  }
-
-  throw FormatException('Invalid DateTime value: $value');
 }
+

@@ -23,14 +23,14 @@ class GroupModel extends Equatable {
 
   factory GroupModel.fromJson(Map<String, dynamic> json) {
     return GroupModel(
-      id: _requiredString(json['id'], 'id'),
-      name: _requiredString(json['name'], 'name'),
-      description: json['description'] as String?,
-      photoUrl: json['photo_url'] as String?,
-      createdBy: _requiredString(json['created_by'], 'created_by'),
-      archivedAt: _nullableDateTime(json['archived_at']),
-      createdAt: _requiredDateTime(json['created_at'], 'created_at'),
-      updatedAt: _requiredDateTime(json['updated_at'], 'updated_at'),
+      id: _safeString(json['id'], ''),
+      name: _safeString(json['name'], 'Grup Tanpa Nama'),
+      description: _nullableStringCoerce(json['description']),
+      photoUrl: _nullableStringCoerce(json['photo_url']),
+      createdBy: _safeString(json['created_by'], ''),
+      archivedAt: _safeDateTime(json['archived_at']),
+      createdAt: _safeDateTime(json['created_at']) ?? DateTime.now(),
+      updatedAt: _safeDateTime(json['updated_at']) ?? DateTime.now(),
     );
   }
 
@@ -90,35 +90,27 @@ class GroupModel extends Equatable {
 
 const Object _sentinel = Object();
 
-String _requiredString(Object? value, String key) {
-  if (value is String && value.isNotEmpty) {
-    return value;
-  }
-
-  throw FormatException('Missing required string field: $key');
+String _safeString(Object? value, String fallback) {
+  if (value == null) return fallback;
+  final String str = value.toString().trim();
+  return str.isEmpty ? fallback : str;
 }
 
-DateTime _requiredDateTime(Object? value, String key) {
-  final DateTime? dateTime = _nullableDateTime(value);
-  if (dateTime != null) {
-    return dateTime;
-  }
-
-  throw FormatException('Missing required DateTime field: $key');
+String? _nullableStringCoerce(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value.isEmpty ? null : value;
+  return value.toString();
 }
 
-DateTime? _nullableDateTime(Object? value) {
-  if (value == null) {
+DateTime? _safeDateTime(Object? value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  try {
+    final String str = value.toString().trim();
+    if (str.isEmpty) return null;
+    return DateTime.parse(str);
+  } catch (_) {
     return null;
   }
-
-  if (value is DateTime) {
-    return value;
-  }
-
-  if (value is String && value.isNotEmpty) {
-    return DateTime.parse(value);
-  }
-
-  throw FormatException('Invalid DateTime value: $value');
 }
+

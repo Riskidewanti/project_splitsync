@@ -38,10 +38,10 @@ class GroupCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.sm),
         border: Border.all(color: const Color(0xFFE7E0DC)),
         boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+          const BoxShadow(
+            color: Color(0x0D000000),
             blurRadius: 8,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -55,6 +55,7 @@ class GroupCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
@@ -149,10 +150,22 @@ class _AmountStatus extends StatelessWidget {
     }
   }
 
+  Color _statusBackgroundColor() {
+    switch (statusStyle) {
+      case GroupCardStatusStyle.red:
+        return const Color(0x1EDC2626);
+      case GroupCardStatusStyle.blue:
+        return const Color(0x1E2563EB);
+      case GroupCardStatusStyle.gray:
+        return const Color(0x1E6B4D49);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: <Widget>[
         Text(
@@ -167,7 +180,7 @@ class _AmountStatus extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _statusColor().withValues(alpha: 0.12),
+            color: _statusBackgroundColor(),
             borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Text(
