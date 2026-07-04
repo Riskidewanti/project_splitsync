@@ -57,14 +57,16 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       debugPrint(parsedResult.toString());
       debugPrint('=============================');
       final String merchant = _parsedMerchant(parsedResult['merchant']);
-      final double total = _parsedTotal(parsedResult['total']);
+      final DateTime date = _parsedDate(parsedResult['date']);
+      final String category = _parsedCategory(parsedResult['category']);
+      final double total = _parsedTotal(parsedResult['total']); 
       final Object? parsedItemsValue = parsedResult['items'];
       debugPrint(
         'OCRCaptureResultPage parsedResult[items] '
         'type=${parsedItemsValue.runtimeType} '
         'length=${parsedItemsValue is List ? parsedItemsValue.length : 'not-list'}',
       );
-      final List<ReceiptItem> items = _parsedItems(parsedResult['items']);
+      final List<ReceiptItem> items = _parsedItems(parsedItemsValue);
 
       debugPrint('Raw OCR text:\n$extractedText');
       debugPrint('Parsed receipt result: $parsedResult');
@@ -91,8 +93,8 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
             return OCRResultPage(
               merchant: merchant,
               total: total,
-              date: DateTime(2026, 12, 24),
-              category: 'Di Karoeke',
+              date: date,
+              category: category,
               items: items,
             );
           },
@@ -138,6 +140,22 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
 
     return 0;
   }
+
+  DateTime _parsedDate(Object? value) {
+  if (value is String) {
+    return DateTime.tryParse(value) ?? DateTime.now();
+  }
+
+  return DateTime.now();
+}
+
+String _parsedCategory(Object? value) {
+  if (value is String && value.trim().isNotEmpty) {
+    return value.trim();
+  }
+
+  return 'Other';
+}
 
   List<ReceiptItem> _parsedItems(Object? value) {
     if (value is! List) {

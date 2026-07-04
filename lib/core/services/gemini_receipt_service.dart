@@ -6,7 +6,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 class GeminiReceiptService {
   GeminiReceiptService({required String apiKey})
     : _model = GenerativeModel(
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         apiKey: apiKey,
         generationConfig: GenerationConfig(
           responseMimeType: 'application/json',
@@ -46,12 +46,17 @@ class GeminiReceiptService {
   }
 
   String _buildPrompt(String rawText) {
-    return '''
-Extract receipt data from the OCR text below.
+  return '''
+You are an AI specialized in extracting receipt information.
 
-Return only valid JSON with these exact keys:
+Extract the receipt data from the OCR text.
+
+Return ONLY valid JSON with this exact structure:
+
 {
   "merchant": "string",
+  "date": "YYYY-MM-DD",
+  "category": "Dine In | Take Away | Digital Wallet | Grocery | Transportation | Entertainment | Other",
   "total": number,
   "items": [
     {
@@ -61,10 +66,28 @@ Return only valid JSON with these exact keys:
   ]
 }
 
-Use an empty string for an unknown merchant, 0 for an unknown total, and an empty array when no items are found.
-Do not include markdown, comments, explanations, or extra keys.
+Rules:
 
-OCR text:
+- merchant = business/store/restaurant name.
+- date = convert into YYYY-MM-DD.
+- total = final amount paid.
+- items = purchased products or services only.
+- Ignore receipt headers, reference numbers, payment codes, customer names, addresses and footer text.
+
+Category Rules:
+- Restaurant, Cafe, Food Court -> Dine In
+- Take Away restaurant -> Take Away
+- DANA, OVO, GoPay, ShopeePay Top Up -> Digital Wallet
+- Indomaret, Alfamart, Supermarket -> Grocery
+- Pertamina, SPBU -> Transportation
+- XXI, CGV -> Entertainment
+- Otherwise -> Other
+
+If OCR contains obvious spelling mistakes, infer the correct word.
+
+Return ONLY JSON.
+
+OCR TEXT:
 """
 $rawText
 """
@@ -119,7 +142,7 @@ $rawText
   }
 
   void _validateReceiptJson(Map<String, dynamic> value) {
-    const Set<String> requiredKeys = <String>{'merchant', 'total', 'items'};
+    const Set<String> requiredKeys = <String>{'merchant', 'date', 'category', 'total', 'items',};
     final Set<String> missingKeys = requiredKeys.difference(value.keys.toSet());
     if (missingKeys.isNotEmpty) {
       throw GeminiReceiptServiceException(
@@ -131,6 +154,18 @@ $rawText
       throw const GeminiReceiptServiceException(
         'Gemini JSON response key "merchant" must be a string.',
       );
+    }
+
+    if (value['date'] is! String) {
+     throw const GeminiReceiptServiceException(
+      'Gemini JSON response key "date" must be a string.',
+     );
+    }
+
+    if (value['category'] is! String) {
+     throw const GeminiReceiptServiceException(
+      'Gemini JSON response key "category" must be a string.',
+     );
     }
 
     if (value['total'] is! num) {
