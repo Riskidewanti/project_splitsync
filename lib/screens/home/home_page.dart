@@ -415,8 +415,10 @@ class _HomePageState extends State<HomePage> {
       },
     );
 
-    titleController.dispose();
-    amountController.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      titleController.dispose();
+      amountController.dispose();
+    });
     return details;
   }
 

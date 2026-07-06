@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../ocr/presentation/pages/edit_items_page.dart';
 import 'confirm_expense_page.dart';
 import 'split_bill_group_selection_page.dart';
+
+final NumberFormat _rupiahFormat = NumberFormat.currency(
+  locale: 'id_ID',
+  symbol: 'Rp ',
+  decimalDigits: 0,
+);
 
 class SplitBillPage extends StatefulWidget {
   const SplitBillPage({
@@ -44,6 +51,7 @@ class _SplitBillPageState extends State<SplitBillPage> {
 
   final List<_SettlementFriend> _participants = <_SettlementFriend>[];
   final Map<String, double> _customAmounts = <String, double>{};
+  final Map<String, double> _percentages = <String, double>{};
   int _selectedTabIndex = 0;
   bool _isLoading = true;
   bool _didRedirectToGroupSelection = false;
@@ -205,8 +213,7 @@ class _SplitBillPageState extends State<SplitBillPage> {
     final double splitAmount = hasParticipants
         ? widget.totalBill / participants.length
         : 0;
-    final List<int> percentages = _percentagesFor(participants.length);
-    _syncCustomAmounts(participants);
+    _syncMaps(participants);
 
     return Scaffold(
       backgroundColor: _surface,
@@ -252,11 +259,12 @@ class _SplitBillPageState extends State<SplitBillPage> {
                       _ParticipantsCard(
                         participants: participants,
                         splitAmount: splitAmount,
-                        percentages: percentages,
+                        percentages: _percentages,
                         customAmounts: _customAmounts,
                         selectedTabIndex: _selectedTabIndex,
                         totalBill: widget.totalBill,
                         onEditCustomAmount: _editCustomAmount,
+                        onEditPercentage: _editPercentage,
                       ),
                       const SizedBox(height: 14),
                     ] else ...<Widget>[
@@ -317,8 +325,15 @@ class _SplitBillPageState extends State<SplitBillPage> {
   }
 
   Future<void> _editCustomAmount(_SettlementFriend friend) async {
+    // Calculate the maximum this person can be assigned.
+    double othersTotal = 0;
+    for (final MapEntry<String, double> entry in _customAmounts.entries) {
+      if (entry.key != friend.id) othersTotal += entry.value;
+    }
+    final double maxForThisPerson = widget.totalBill - othersTotal;
+
     final TextEditingController controller = TextEditingController(
-      text: (_customAmounts[friend.id] ?? 0).toStringAsFixed(2),
+      text: (_customAmounts[friend.id] ?? 0).toInt().toString(),
     );
 
     final double? amount = await showDialog<double>(
@@ -326,14 +341,29 @@ class _SplitBillPageState extends State<SplitBillPage> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text('Atur nominal ${friend.name}'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Nominal',
-              border: OutlineInputBorder(),
-            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  prefixText: 'Rp ',
+                  labelText: 'Nominal',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Maks: ${_rupiahFormat.format(maxForThisPerson)}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _SplitBillPageState._muted,
+                ),
+              ),
+            ],
           ),
           actions: <Widget>[
             TextButton(
@@ -365,9 +395,66 @@ class _SplitBillPageState extends State<SplitBillPage> {
     controller.dispose();
     if (amount == null) return;
 
-    setState(() {
-      _customAmounts[friend.id] = amount;
-    });
+    _updateCustomAmount(friend.id, amount);
+  }
+
+  Future<void> _editPercentage(_SettlementFriend friend) async {
+    final double currentPct = _percentages[friend.id] ?? 0;
+    final TextEditingController controller = TextEditingController(
+      text: currentPct == currentPct.roundToDouble()
+          ? currentPct.toInt().toString()
+          : currentPct.toStringAsFixed(1),
+    );
+
+    final double? pct = await showDialog<double>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('Atur persentase ${friend.name}'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              suffixText: '%',
+              labelText: 'Persentase',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final double? value = double.tryParse(
+                  controller.text.trim().replaceAll(',', '.'),
+                );
+                if (value == null || value < 0 || value > 100) {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('Persentase harus antara 0 – 100.'),
+                      ),
+                    );
+                  return;
+                }
+                Navigator.pop(dialogContext, value);
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+    if (pct == null) return;
+
+    _updatePercentage(friend.id, pct);
   }
 
   void _handleSubmit() {
@@ -375,8 +462,7 @@ class _SplitBillPageState extends State<SplitBillPage> {
       ..._participants,
     ];
     if (participants.isEmpty) return;
-    final List<int> percentages = _percentagesFor(participants.length);
-    _syncCustomAmounts(participants);
+    _syncMaps(participants);
 
     Navigator.push(
       context,
@@ -402,14 +488,9 @@ class _SplitBillPageState extends State<SplitBillPage> {
                       ? null
                       : participants[index].avatarUrl,
                   percentage: _selectedTabIndex == 1
-                      ? percentages[index].toDouble()
+                      ? _percentages[participants[index].id] ?? 0
                       : null,
-                  amount: _amountForParticipant(
-                    participants[index],
-                    index,
-                    participants.length,
-                    percentages,
-                  ),
+                  amount: _amountForParticipant(participants[index]),
                   isPayer: index == 0,
                 ),
             ],
@@ -421,24 +502,127 @@ class _SplitBillPageState extends State<SplitBillPage> {
 
   String get _splitMethod {
     if (_selectedTabIndex == 1) return 'percentage';
-    if (_selectedTabIndex == 2) return 'custom';
+    if (_selectedTabIndex == 2) return 'exact';
     return 'equal';
   }
 
-  double _amountForParticipant(
-    _SettlementFriend participant,
-    int index,
-    int participantCount,
-    List<int> percentages,
-  ) {
+  double _amountForParticipant(_SettlementFriend participant) {
+    final int count = _participants.length;
     if (_selectedTabIndex == 1) {
-      return widget.totalBill * percentages[index] / 100;
+      final double pct = _percentages[participant.id] ?? 0;
+      return widget.totalBill * pct / 100;
     }
     if (_selectedTabIndex == 2) {
       return _customAmounts[participant.id] ??
-          widget.totalBill / participantCount;
+          (count > 0 ? widget.totalBill / count : 0);
     }
-    return widget.totalBill / participantCount;
+    return count > 0 ? widget.totalBill / count : 0;
+  }
+
+  // ── Bidirectional sync helpers ──────────────────────────────────────────
+
+  /// Recalculates every participant's percentage from their custom amount.
+  /// Formula: percentage = (exact_amount / total_bill) * 100
+  void _recalculatePercentagesFromAmounts() {
+    if (widget.totalBill <= 0) return;
+    for (final _SettlementFriend f in _participants) {
+      final double amount = _customAmounts[f.id] ?? 0;
+      _percentages[f.id] = (amount / widget.totalBill) * 100;
+    }
+  }
+
+  /// Recalculates every participant's custom amount from their percentage.
+  /// Formula: exact_amount = total_bill * (percentage / 100)
+  void _recalculateAmountsFromPercentages() {
+    for (final _SettlementFriend f in _participants) {
+      final double pct = _percentages[f.id] ?? 0;
+      _customAmounts[f.id] = widget.totalBill * pct / 100;
+    }
+  }
+
+  /// Updates a single participant's custom amount with validation, then
+  /// recalculates all percentages so the Presentase tab stays in sync.
+  void _updateCustomAmount(String id, double newAmount) {
+    // Calculate how much budget the *other* participants are already using.
+    double othersTotal = 0;
+    for (final MapEntry<String, double> entry in _customAmounts.entries) {
+      if (entry.key != id) othersTotal += entry.value;
+    }
+
+    // Cap the new amount so the grand total never exceeds totalBill.
+    final double maxAllowed = widget.totalBill - othersTotal;
+    final double clampedAmount = newAmount.clamp(0, maxAllowed);
+
+    setState(() {
+      _customAmounts[id] = clampedAmount;
+      _recalculatePercentagesFromAmounts();
+    });
+
+    // Warn the user if their input was capped.
+    if (newAmount > maxAllowed && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Nominal disesuaikan ke ${_rupiahFormat.format(clampedAmount)} '
+            'agar total tidak melebihi ${_rupiahFormat.format(widget.totalBill)}',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// Updates a single participant's percentage with validation, then
+  /// recalculates all custom amounts so the Kustom tab stays in sync.
+  void _updatePercentage(String id, double newPct) {
+    // Calculate how much percentage the *other* participants are using.
+    double othersPct = 0;
+    for (final MapEntry<String, double> entry in _percentages.entries) {
+      if (entry.key != id) othersPct += entry.value;
+    }
+
+    // Cap so total percentage never exceeds 100%.
+    final double maxPct = 100.0 - othersPct;
+    final double clampedPct = newPct.clamp(0, maxPct);
+
+    setState(() {
+      _percentages[id] = clampedPct;
+      _recalculateAmountsFromPercentages();
+    });
+
+    if (newPct > maxPct && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Persentase disesuaikan ke ${clampedPct.toStringAsFixed(1)}% '
+            'agar total tidak melebihi 100%',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  // ── Sync & init helpers ────────────────────────────────────────────────
+
+  /// Keeps both maps in sync with the current participant list.
+  /// Removes stale entries, adds defaults for new participants.
+  void _syncMaps(List<_SettlementFriend> participants) {
+    final Set<String> ids = participants
+        .map((_SettlementFriend p) => p.id)
+        .toSet();
+    _customAmounts.removeWhere((String id, double _) => !ids.contains(id));
+    _percentages.removeWhere((String id, double _) => !ids.contains(id));
+
+    if (participants.isEmpty) return;
+
+    final double equalAmount = widget.totalBill / participants.length;
+    final double equalPct = 100.0 / participants.length;
+
+    for (final _SettlementFriend p in participants) {
+      _customAmounts.putIfAbsent(p.id, () => equalAmount);
+      _percentages.putIfAbsent(p.id, () => equalPct);
+    }
   }
 
   String _firstNotEmpty(List<Object?> values, {String fallback = 'Teman'}) {
@@ -453,57 +637,6 @@ class _SplitBillPageState extends State<SplitBillPage> {
     return RegExp(
       r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
     ).hasMatch(value);
-  }
-
-  List<int> _percentagesFor(int participantCount) {
-    if (participantCount <= 0) return <int>[];
-    if (participantCount == 1) return <int>[100];
-    if (participantCount == 3) return <int>[50, 30, 30];
-
-    final int remaining = 50;
-    final int friendCount = participantCount - 1;
-    final int baseFriendPercentage = remaining ~/ friendCount;
-    final int remainder = remaining % friendCount;
-
-    return <int>[
-      50,
-      for (int index = 0; index < friendCount; index++)
-        baseFriendPercentage + (index < remainder ? 1 : 0),
-    ];
-  }
-
-  void _syncCustomAmounts(List<_SettlementFriend> participants) {
-    final Set<String> participantIds = participants
-        .map((_SettlementFriend participant) => participant.id)
-        .toSet();
-    _customAmounts.removeWhere((String id, double _) {
-      return !participantIds.contains(id);
-    });
-
-    if (participants.isEmpty) return;
-
-    final List<double> defaults = _defaultCustomAmounts(participants.length);
-    for (int index = 0; index < participants.length; index++) {
-      _customAmounts.putIfAbsent(participants[index].id, () => defaults[index]);
-    }
-  }
-
-  List<double> _defaultCustomAmounts(int participantCount) {
-    if (participantCount <= 0) return <double>[];
-    if (participantCount == 1) return <double>[widget.totalBill];
-    if (participantCount == 3) {
-      const double friendDefault = 31.50;
-      return <double>[
-        widget.totalBill - (friendDefault * 2),
-        friendDefault,
-        friendDefault,
-      ];
-    }
-
-    final double equalAmount = widget.totalBill / participantCount;
-    return <double>[
-      for (int index = 0; index < participantCount; index++) equalAmount,
-    ];
   }
 }
 
@@ -529,7 +662,7 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          _formatCurrency(totalBill),
+          _rupiahFormat.format(totalBill),
           style: const TextStyle(
             color: _SplitBillPageState._ink,
             fontSize: 35,
@@ -614,15 +747,17 @@ class _ParticipantsCard extends StatelessWidget {
     required this.selectedTabIndex,
     required this.totalBill,
     required this.onEditCustomAmount,
+    required this.onEditPercentage,
   });
 
   final List<_SettlementFriend> participants;
   final double splitAmount;
-  final List<int> percentages;
+  final Map<String, double> percentages;
   final Map<String, double> customAmounts;
   final int selectedTabIndex;
   final double totalBill;
   final ValueChanged<_SettlementFriend> onEditCustomAmount;
+  final ValueChanged<_SettlementFriend> onEditPercentage;
 
   @override
   Widget build(BuildContext context) {
@@ -651,26 +786,31 @@ class _ParticipantsCard extends StatelessWidget {
           );
         },
         itemBuilder: (BuildContext context, int index) {
+          final _SettlementFriend friend = participants[index];
           return _ParticipantTile(
-            friend: participants[index],
-            amount: _amountFor(index),
+            friend: friend,
+            amount: _amountFor(friend),
             isCurrentUser: index == 0,
-            percentage: percentages[index],
+            percentage: percentages[friend.id] ?? 0,
             showPercentage: selectedTabIndex == 1,
             showCustomEdit: selectedTabIndex == 2,
-            onEditCustomAmount: () => onEditCustomAmount(participants[index]),
+            onEditCustomAmount: () => onEditCustomAmount(friend),
+            onEditPercentage: () => onEditPercentage(friend),
           );
         },
       ),
     );
   }
 
-  double _amountFor(int index) {
+  double _amountFor(_SettlementFriend friend) {
     if (selectedTabIndex == 2) {
-      return customAmounts[participants[index].id] ?? splitAmount;
+      return customAmounts[friend.id] ?? splitAmount;
     }
-    if (selectedTabIndex != 1) return splitAmount;
-    return totalBill * percentages[index] / 100;
+    if (selectedTabIndex == 1) {
+      final double pct = percentages[friend.id] ?? 0;
+      return totalBill * pct / 100;
+    }
+    return splitAmount;
   }
 }
 
@@ -709,15 +849,17 @@ class _ParticipantTile extends StatelessWidget {
     required this.showPercentage,
     required this.showCustomEdit,
     required this.onEditCustomAmount,
+    required this.onEditPercentage,
   });
 
   final _SettlementFriend friend;
   final double amount;
   final bool isCurrentUser;
-  final int percentage;
+  final double percentage;
   final bool showPercentage;
   final bool showCustomEdit;
   final VoidCallback onEditCustomAmount;
+  final VoidCallback onEditPercentage;
 
   @override
   Widget build(BuildContext context) {
@@ -760,11 +902,14 @@ class _ParticipantTile extends StatelessWidget {
           const SizedBox(width: 8),
           if (showPercentage) ...<Widget>[
             const SizedBox(width: 8),
-            _PercentagePill(percentage: percentage),
+            GestureDetector(
+              onTap: onEditPercentage,
+              child: _PercentagePill(percentage: percentage),
+            ),
             const SizedBox(width: 12),
           ],
           Text(
-            _formatCurrency(amount),
+            _rupiahFormat.format(amount),
             style: TextStyle(
               color: isCurrentUser
                   ? _SplitBillPageState._primary
@@ -774,13 +919,13 @@ class _ParticipantTile extends StatelessWidget {
             ),
           ),
           if (showCustomEdit)
-            IconButton(
-              tooltip: 'Edit nominal',
-              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              onPressed: onEditCustomAmount,
-              icon: const Icon(Icons.edit, color: Color(0xFF4D4B52), size: 16),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onEditCustomAmount,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 9, vertical: 12),
+                child: Icon(Icons.edit, color: Color(0xFF4D4B52), size: 16),
+              ),
             )
           else
             const SizedBox(width: 15),
@@ -793,10 +938,14 @@ class _ParticipantTile extends StatelessWidget {
 class _PercentagePill extends StatelessWidget {
   const _PercentagePill({required this.percentage});
 
-  final int percentage;
+  final double percentage;
 
   @override
   Widget build(BuildContext context) {
+    final String label = percentage == percentage.roundToDouble()
+        ? percentage.toInt().toString()
+        : percentage.toStringAsFixed(1);
+
     return Container(
       width: 50,
       height: 22,
@@ -810,14 +959,14 @@ class _PercentagePill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(
-            '$percentage',
+            label,
             style: const TextStyle(
               color: _SplitBillPageState._ink,
               fontSize: 10,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           const Text(
             '%',
             style: TextStyle(
@@ -945,19 +1094,3 @@ class _SettlementFriend {
   final String avatarUrl;
 }
 
-String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < whole.length; i++) {
-    final int reverseIndex = whole.length - i;
-    buffer.write(whole[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
-    }
-  }
-
-  return 'Rp${buffer.toString()}';
-}

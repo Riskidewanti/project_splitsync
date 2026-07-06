@@ -5,6 +5,7 @@ import '../core/theme/app_theme.dart';
 import '../screens/profile_setting/profile_settings_page.dart';
 import '../screens/home/home_page.dart';
 import '../features/groups/presentation/pages/group_home_page.dart';
+import '../features/expenses/presentation/pages/expense_history_page.dart';
 
 class ExpenseReport {
   const ExpenseReport({
@@ -764,12 +765,22 @@ class _BiggestTransactionsCard extends StatelessWidget {
           Row(
             children: [
               const Expanded(child: _CardTitle('Transaksi Terbesar')),
-              Text(
-                'Lihat Semua ›',
-                style: TextStyle(
-                  color: const Color(0xFF8C0010),
-                  fontSize: responsive.font(15),
-                  fontWeight: FontWeight.w800,
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    SmoothTransitionRoute(
+                      page: const ExpenseHistoryPage(),
+                    ),
+                  );
+                },
+                child: Text(
+                  'Lihat Semua ›',
+                  style: TextStyle(
+                    color: const Color(0xFF8C0010),
+                    fontSize: responsive.font(15),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],

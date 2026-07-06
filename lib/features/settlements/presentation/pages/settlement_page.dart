@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+final NumberFormat _rupiahFormat = NumberFormat.currency(
+  locale: 'id_ID',
+  symbol: 'Rp ',
+  decimalDigits: 0,
+);
 
 class SettlementPage extends StatefulWidget {
   const SettlementPage({
     super.key,
     this.groupId = '',
     this.userId = '',
-    this.totalBill = 124.50,
-    this.billTitle = "Dinner at Luigi's",
+    this.totalBill = 124500,
+    this.billTitle = 'Minta Pembayaran',
   });
 
   final String groupId;
@@ -29,6 +36,12 @@ class _SettlementPageState extends State<SettlementPage> {
   final List<_SettlementFriend> _friends = <_SettlementFriend>[];
   int _selectedTabIndex = 0;
   bool _isLoading = true;
+
+  /// Per-friend percentage values for the "Presentase" tab.
+  final Map<String, double> _percentages = <String, double>{};
+
+  /// Per-friend custom amounts for the "Kustom" tab.
+  final Map<String, double> _customAmounts = <String, double>{};
 
   @override
   void initState() {
@@ -58,6 +71,7 @@ class _SettlementPageState extends State<SettlementPage> {
           ..clear()
           ..addAll(friends);
         _isLoading = false;
+        _initPerFriendMaps();
       });
     } catch (error) {
       debugPrint('Error fetching settlement friends: $error');
@@ -112,12 +126,83 @@ class _SettlementPageState extends State<SettlementPage> {
     );
   }
 
+  /// Initialises per-friend percentage and custom amount maps with sensible
+  /// defaults whenever the friend list changes.
+  void _initPerFriendMaps() {
+    final List<_SettlementFriend> all = _allParticipants;
+    final double equalPercent =
+        all.isEmpty ? 0 : (100.0 / all.length);
+    final double equalAmount =
+        all.isEmpty ? 0 : (widget.totalBill / all.length);
+
+    for (final _SettlementFriend f in all) {
+      _percentages.putIfAbsent(f.id, () => equalPercent);
+      _customAmounts.putIfAbsent(f.id, () => equalAmount);
+    }
+  }
+
+  List<_SettlementFriend> get _allParticipants => <_SettlementFriend>[
+        const _SettlementFriend(id: 'current-user', name: 'You', avatarUrl: ''),
+        ..._friends,
+      ];
+
+  /// Returns the split_method string for the currently selected tab.
+  String get _splitMethod {
+    switch (_selectedTabIndex) {
+      case 1:
+        return 'percentage';
+      case 2:
+        return 'exact';
+      default:
+        return 'equal';
+    }
+  }
+
+  /// Recalculates every participant's percentage from their custom amount.
+  /// Formula: percentage = (exact_amount / total_bill) * 100
+  void _recalculatePercentages() {
+    if (widget.totalBill <= 0) return;
+    for (final _SettlementFriend f in _allParticipants) {
+      final double amount = _customAmounts[f.id] ?? 0;
+      _percentages[f.id] = (amount / widget.totalBill) * 100;
+    }
+  }
+
+  /// Updates a single participant's custom amount with validation, then
+  /// recalculates all percentages so the Presentase tab stays in sync.
+  void _updateCustomAmount(String id, double newAmount) {
+    // Calculate how much budget the *other* participants are already using.
+    double othersTotal = 0;
+    for (final MapEntry<String, double> entry in _customAmounts.entries) {
+      if (entry.key != id) othersTotal += entry.value;
+    }
+
+    // Cap the new amount so the grand total never exceeds totalBill.
+    final double maxAllowed = widget.totalBill - othersTotal;
+    final double clampedAmount = newAmount.clamp(0, maxAllowed);
+
+    setState(() {
+      _customAmounts[id] = clampedAmount;
+      _recalculatePercentages();
+    });
+
+    // Warn the user if their input was capped.
+    if (newAmount > maxAllowed && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Nominal disesuaikan ke ${_rupiahFormat.format(clampedAmount)} '
+            'agar total tidak melebihi ${_rupiahFormat.format(widget.totalBill)}',
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final List<_SettlementFriend> participants = <_SettlementFriend>[
-      const _SettlementFriend(id: 'current-user', name: 'You', avatarUrl: ''),
-      ..._friends,
-    ];
+    final List<_SettlementFriend> participants = _allParticipants;
     final bool hasFriends = _friends.isNotEmpty;
     final double splitAmount = widget.totalBill / participants.length;
 
@@ -162,10 +247,8 @@ class _SettlementPageState extends State<SettlementPage> {
                     ),
                     const SizedBox(height: 18),
                     if (hasFriends) ...<Widget>[
-                      _ParticipantsCard(
-                        participants: participants,
-                        splitAmount: splitAmount,
-                      ),
+                      // ── Tab Content ───────────────────────────
+                      _buildTabContent(participants, splitAmount),
                       const SizedBox(height: 14),
                     ],
                     _AddFriendButton(onTap: _showAddFriendDialog),
@@ -176,6 +259,39 @@ class _SettlementPageState extends State<SettlementPage> {
               ),
       ),
     );
+  }
+
+  /// Builds the correct list card depending on which tab is active.
+  Widget _buildTabContent(
+    List<_SettlementFriend> participants,
+    double equalSplitAmount,
+  ) {
+    switch (_selectedTabIndex) {
+      // ── Tab 1 : Presentase ────────────────────────────────────
+      case 1:
+        return _PercentageCard(
+          participants: participants,
+          totalBill: widget.totalBill,
+          percentages: _percentages,
+          onPercentageChanged: (String id, double value) {
+            setState(() => _percentages[id] = value);
+          },
+        );
+      // ── Tab 2 : Kustom ────────────────────────────────────────
+      case 2:
+        return _CustomAmountCard(
+          participants: participants,
+          totalBill: widget.totalBill,
+          customAmounts: _customAmounts,
+          onAmountChanged: _updateCustomAmount,
+        );
+      // ── Tab 0 : Pembagian (default – equal split) ─────────────
+      default:
+        return _ParticipantsCard(
+          participants: participants,
+          splitAmount: equalSplitAmount,
+        );
+    }
   }
 
   void _showAddFriendDialog() {
@@ -200,13 +316,13 @@ class _SettlementPageState extends State<SettlementPage> {
                 final String name = controller.text.trim();
                 if (name.isEmpty) return;
                 setState(() {
-                  _friends.add(
-                    _SettlementFriend(
-                      id: DateTime.now().microsecondsSinceEpoch.toString(),
-                      name: name,
-                      avatarUrl: '',
-                    ),
+                  final _SettlementFriend newFriend = _SettlementFriend(
+                    id: DateTime.now().microsecondsSinceEpoch.toString(),
+                    name: name,
+                    avatarUrl: '',
                   );
+                  _friends.add(newFriend);
+                  _initPerFriendMaps();
                 });
                 Navigator.pop(context);
               },
@@ -219,8 +335,13 @@ class _SettlementPageState extends State<SettlementPage> {
   }
 
   void _handleSubmit() {
+    debugPrint('split_method: $_splitMethod');
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Settlement berhasil dikirim')),
+      SnackBar(
+        content: Text(
+          'Settlement berhasil dikirim (split_method: $_splitMethod)',
+        ),
+      ),
     );
   }
 
@@ -238,6 +359,10 @@ class _SettlementPageState extends State<SettlementPage> {
     ).hasMatch(value);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared Widgets
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
   const _Header({required this.totalBill, required this.title});
@@ -261,7 +386,7 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          _formatCurrency(totalBill),
+          _rupiahFormat.format(totalBill),
           style: const TextStyle(
             color: _SettlementPageState._ink,
             fontSize: 35,
@@ -337,6 +462,10 @@ class _SegmentedTabs extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab 0 – Pembagian (Equal Split)
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _ParticipantsCard extends StatelessWidget {
   const _ParticipantsCard({
     required this.participants,
@@ -349,18 +478,7 @@ class _ParticipantsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _SettlementPageState._line),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -417,7 +535,7 @@ class _ParticipantTile extends StatelessWidget {
             ),
           ),
           Text(
-            _formatCurrency(amount),
+            _rupiahFormat.format(amount),
             style: TextStyle(
               color: isCurrentUser
                   ? _SettlementPageState._primary
@@ -432,6 +550,289 @@ class _ParticipantTile extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab 1 – Presentase (Percentage Split)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PercentageCard extends StatelessWidget {
+  const _PercentageCard({
+    required this.participants,
+    required this.totalBill,
+    required this.percentages,
+    required this.onPercentageChanged,
+  });
+
+  final List<_SettlementFriend> participants;
+  final double totalBill;
+  final Map<String, double> percentages;
+  final void Function(String id, double value) onPercentageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: _cardDecoration(),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: participants.length,
+        separatorBuilder: (BuildContext context, int index) {
+          return const Divider(
+            height: 1,
+            color: _SettlementPageState._line,
+            indent: 52,
+          );
+        },
+        itemBuilder: (BuildContext context, int index) {
+          final _SettlementFriend friend = participants[index];
+          final double pct = percentages[friend.id] ?? 0;
+          final double amount = totalBill * pct / 100;
+
+          return SizedBox(
+            height: 62,
+            child: Row(
+              children: <Widget>[
+                const SizedBox(width: 13),
+                _Avatar(friend: friend, isCurrentUser: index == 0),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        friend.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _SettlementPageState._ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _rupiahFormat.format(amount),
+                        style: const TextStyle(
+                          color: _SettlementPageState._muted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 60,
+                  child: TextField(
+                    controller: TextEditingController(
+                      text: pct == pct.roundToDouble()
+                          ? pct.toInt().toString()
+                          : pct.toStringAsFixed(1),
+                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: index == 0
+                          ? _SettlementPageState._primary
+                          : _SettlementPageState._ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      suffixText: '%',
+                      suffixStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _SettlementPageState._muted,
+                      ),
+                      border: OutlineInputBorder(),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: _SettlementPageState._line,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: _SettlementPageState._primary,
+                        ),
+                      ),
+                    ),
+                    onChanged: (String value) {
+                      final double? parsed = double.tryParse(value);
+                      if (parsed != null) {
+                        onPercentageChanged(friend.id, parsed);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 15),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab 2 – Kustom (Custom / Exact Amounts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CustomAmountCard extends StatelessWidget {
+  const _CustomAmountCard({
+    required this.participants,
+    required this.totalBill,
+    required this.customAmounts,
+    required this.onAmountChanged,
+  });
+
+  final List<_SettlementFriend> participants;
+  final double totalBill;
+  final Map<String, double> customAmounts;
+  final void Function(String id, double value) onAmountChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: _cardDecoration(),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: participants.length,
+        separatorBuilder: (BuildContext context, int index) {
+          return const Divider(
+            height: 1,
+            color: _SettlementPageState._line,
+            indent: 52,
+          );
+        },
+        itemBuilder: (BuildContext context, int index) {
+          final _SettlementFriend friend = participants[index];
+          final double amount = customAmounts[friend.id] ?? 0;
+
+          return SizedBox(
+            height: 58,
+            child: Row(
+              children: <Widget>[
+                const SizedBox(width: 13),
+                _Avatar(friend: friend, isCurrentUser: index == 0),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    friend.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _SettlementPageState._ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  _rupiahFormat.format(amount),
+                  style: TextStyle(
+                    color: index == 0
+                        ? _SettlementPageState._primary
+                        : _SettlementPageState._ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Pencil icon to edit nominal
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 16),
+                  color: _SettlementPageState._muted,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  splashRadius: 18,
+                  onPressed: () => _showEditDialog(context, friend, amount),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEditDialog(
+    BuildContext context,
+    _SettlementFriend friend,
+    double currentAmount,
+  ) {
+    // Calculate the maximum this person can be assigned.
+    double othersTotal = 0;
+    for (final MapEntry<String, double> entry in customAmounts.entries) {
+      if (entry.key != friend.id) othersTotal += entry.value;
+    }
+    final double maxForThisPerson = totalBill - othersTotal;
+
+    final TextEditingController controller = TextEditingController(
+      text: currentAmount.toInt().toString(),
+    );
+
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('Edit nominal – ${friend.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  prefixText: 'Rp ',
+                  hintText: 'Masukkan nominal',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Maks: ${_rupiahFormat.format(maxForThisPerson)}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _SettlementPageState._muted,
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final double? parsed = double.tryParse(controller.text.trim());
+                if (parsed != null) {
+                  onAmountChanged(friend.id, parsed);
+                }
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared Helper Widgets & Utilities
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.friend, required this.isCurrentUser});
@@ -544,19 +945,18 @@ class _SettlementFriend {
   final String avatarUrl;
 }
 
-String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < whole.length; i++) {
-    final int reverseIndex = whole.length - i;
-    buffer.write(whole[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
-    }
-  }
-
-  return '\$${buffer.toString()}.${parts.last}';
+/// Shared card decoration used by all three tab cards.
+BoxDecoration _cardDecoration() {
+  return BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: _SettlementPageState._line),
+    boxShadow: <BoxShadow>[
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.035),
+        blurRadius: 16,
+        offset: const Offset(0, 8),
+      ),
+    ],
+  );
 }

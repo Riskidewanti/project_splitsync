@@ -143,7 +143,9 @@ class _PersonPaymentRequestPageState extends State<PersonPaymentRequestPage> {
       },
     );
 
-    controller.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
     if (value != null) {
       _amountController.text = value;
     }
@@ -169,7 +171,11 @@ class _PersonPaymentRequestPageState extends State<PersonPaymentRequestPage> {
     if (!mounted) return;
     setState(() => _isSubmitting = false);
     _showMessage('Request pembayaran dikirim ke ${friend.name}.');
-    Navigator.of(context).maybePop(true);
+
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop(true);
+    });
   }
 
   void _showMessage(String message) {

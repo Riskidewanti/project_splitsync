@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../ocr/presentation/pages/edit_items_page.dart';
 import 'split_bill_page.dart';
@@ -742,18 +743,6 @@ class _SummaryLine extends StatelessWidget {
 }
 
 String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < whole.length; i++) {
-    final int reverseIndex = whole.length - i;
-    buffer.write(whole[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
-    }
-  }
-
-  return 'Rp${buffer.toString()}';
+  return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+      .format(value);
 }

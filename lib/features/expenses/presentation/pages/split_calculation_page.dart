@@ -175,7 +175,7 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
   String get _selectedSplitMethod {
     return switch (_selectedSegment) {
       1 => 'percentage',
-      2 => 'custom',
+      2 => 'exact',
       _ => 'equal',
     };
   }

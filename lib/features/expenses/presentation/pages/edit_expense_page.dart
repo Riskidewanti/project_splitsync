@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditExpensePage extends StatefulWidget {
   const EditExpensePage({
@@ -28,6 +29,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
   late TextEditingController _noteController;
   late String _selectedCategory;
   late List<String> _tags;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -53,73 +55,84 @@ class _EditExpensePageState extends State<EditExpensePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFBF7F4),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2933),
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          onPressed: () => Navigator.maybePop(context),
-          icon: const Icon(Icons.arrow_back, size: 20),
-        ),
-        title: const Text(
-          'SplitSync',
-          style: TextStyle(
-            color: Color(0xFFD70F1F),
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
+    return Stack(
+      children: <Widget>[
+        Scaffold(
+          backgroundColor: const Color(0xFFFBF7F4),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            foregroundColor: const Color(0xFF1F2933),
+            elevation: 0,
+            centerTitle: true,
+            leading: IconButton(
+              onPressed: _isLoading ? null : () => Navigator.maybePop(context),
+              icon: const Icon(Icons.arrow_back, size: 20),
+            ),
+            title: const Text(
+              'SplitSync',
+              style: TextStyle(
+                color: Color(0xFFD70F1F),
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
-        ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                    children: <Widget>[
-                      const Text(
-                        'Edit Pengeluaran',
-                        style: TextStyle(
-                          color: Color(0xFF1D2430),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
+          body: SafeArea(
+            top: false,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  children: <Widget>[
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                        children: <Widget>[
+                          const Text(
+                            'Edit Pengeluaran',
+                            style: TextStyle(
+                              color: Color(0xFF1D2430),
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Ubah detail pengeluaran',
+                            style: TextStyle(
+                              color: Color(0xFF6B7280),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildDescriptionField(),
+                          const SizedBox(height: 16),
+                          _buildAmountField(),
+                          const SizedBox(height: 16),
+                          _buildCategoryDropdown(),
+                          const SizedBox(height: 16),
+                          _buildNoteField(),
+                          const SizedBox(height: 16),
+                          _buildTagsSection(),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Ubah detail pengeluaran',
-                        style: TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildDescriptionField(),
-                      const SizedBox(height: 16),
-                      _buildAmountField(),
-                      const SizedBox(height: 16),
-                      _buildCategoryDropdown(),
-                      const SizedBox(height: 16),
-                      _buildNoteField(),
-                      const SizedBox(height: 16),
-                      _buildTagsSection(),
-                    ],
-                  ),
+                    ),
+                    _buildBottomActions(),
+                  ],
                 ),
-                _buildBottomActions(),
-              ],
+              ),
             ),
           ),
         ),
-      ),
+        if (_isLoading)
+          Container(
+            color: Colors.black26,
+            child: const Center(
+              child: CircularProgressIndicator(color: Color(0xFFD70F1F)),
+            ),
+          ),
+      ],
     );
   }
 
@@ -429,7 +442,7 @@ class _EditExpensePageState extends State<EditExpensePage> {
     );
   }
 
-  void _handleUpdate() {
+  Future<void> _handleUpdate() async {
     if (_descriptionController.text.isEmpty || _amountController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -439,18 +452,51 @@ class _EditExpensePageState extends State<EditExpensePage> {
       return;
     }
 
-    // TODO: Integrate with use case to update expense
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pengeluaran berhasil diperbarui')),
-    );
+    final double? parsedAmount = double.tryParse(_amountController.text);
+    if (parsedAmount == null || parsedAmount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nominal tidak valid')),
+      );
+      return;
+    }
 
-    Navigator.pop(context);
+    setState(() => _isLoading = true);
+
+    try {
+      final client = Supabase.instance.client;
+      await client.from('expenses').update(<String, dynamic>{
+        'title': _descriptionController.text.trim(),
+        'total_amount': parsedAmount,
+        'category': _selectedCategory,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', widget.expenseId);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pengeluaran berhasil diperbarui')),
+      );
+
+      Navigator.pop(context, true);
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memperbarui: ${e.message}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $e')),
+      );
+    }
   }
 
   void _handleDelete() {
     showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Hapus Pengeluaran'),
           content: const Text(
@@ -458,17 +504,13 @@ class _EditExpensePageState extends State<EditExpensePage> {
           ),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Batal'),
             ),
             TextButton(
               onPressed: () {
-                // TODO: Integrate with use case to delete expense
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Pengeluaran berhasil dihapus')),
-                );
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
+                _performDelete();
               },
               child: const Text('Hapus', style: TextStyle(color: Colors.red)),
             ),
@@ -476,6 +518,35 @@ class _EditExpensePageState extends State<EditExpensePage> {
         );
       },
     );
+  }
+
+  Future<void> _performDelete() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final client = Supabase.instance.client;
+      await client.from('expenses').delete().eq('id', widget.expenseId);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pengeluaran berhasil dihapus')),
+      );
+
+      Navigator.pop(context, true);
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghapus: ${e.message}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $e')),
+      );
+    }
   }
 
   String _categoryLabel(String category) {

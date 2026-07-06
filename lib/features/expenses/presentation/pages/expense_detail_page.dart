@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'edit_expense_page.dart';
 
 class ExpenseDetailPage extends StatelessWidget {
@@ -48,10 +49,10 @@ class ExpenseDetailPage extends StatelessWidget {
         ),
         actions: <Widget>[
           IconButton(
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final bool? updated = await Navigator.push<bool>(
                 context,
-                MaterialPageRoute<void>(
+                MaterialPageRoute<bool>(
                   builder: (BuildContext context) => EditExpensePage(
                     expenseId: expenseId,
                     initialDescription: description,
@@ -62,6 +63,9 @@ class ExpenseDetailPage extends StatelessWidget {
                   ),
                 ),
               );
+              if (updated == true && context.mounted) {
+                Navigator.pop(context, true);
+              }
             },
             icon: const Icon(Icons.edit_outlined, size: 20),
           ),
@@ -357,20 +361,8 @@ class ExpenseDetailPage extends StatelessWidget {
   }
 
   String _formatCurrency(double value) {
-    final String fixed = value.toStringAsFixed(2);
-    final List<String> parts = fixed.split('.');
-    final String whole = parts.first;
-    final StringBuffer buffer = StringBuffer();
-
-    for (int i = 0; i < whole.length; i++) {
-      final int reverseIndex = whole.length - i;
-      buffer.write(whole[i]);
-      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-        buffer.write(',');
-      }
-    }
-
-    return '\$${buffer.toString()}.${parts.last}';
+    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+        .format(value);
   }
 
   String _formatDate(DateTime date) {

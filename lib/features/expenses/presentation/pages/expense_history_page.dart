@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../data/models/expense_model.dart';
 import 'add_expense_page.dart';
 import 'expense_detail_page.dart';
 
 class ExpenseHistoryPage extends StatefulWidget {
   const ExpenseHistoryPage({
     super.key,
-    required this.groupId,
+    this.groupId,
   });
 
-  final String groupId;
+  final String? groupId;
 
   @override
   State<ExpenseHistoryPage> createState() => _ExpenseHistoryPageState();
@@ -17,48 +21,63 @@ class ExpenseHistoryPage extends StatefulWidget {
 class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
   String _selectedFilter = 'all';
   late ScrollController _scrollController;
-
-  // Sample data - replace with actual data from repository
-  final List<Map<String, dynamic>> _expenses = <Map<String, dynamic>>[
-    {
-      'id': '1',
-      'description': 'Makan di Restoran',
-      'amount': 150.00,
-      'category': 'food',
-      'paidBy': 'John Doe',
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'itemCount': 4,
-    },
-    {
-      'id': '2',
-      'description': 'Transportasi Uber',
-      'amount': 25.50,
-      'category': 'transport',
-      'paidBy': 'Jane Smith',
-      'date': DateTime.now().subtract(const Duration(days: 3)),
-      'itemCount': null,
-    },
-    {
-      'id': '3',
-      'description': 'Tiket Bioskop',
-      'amount': 60.00,
-      'category': 'entertainment',
-      'paidBy': 'John Doe',
-      'date': DateTime.now().subtract(const Duration(days: 7)),
-      'itemCount': null,
-    },
-  ];
+  late Future<List<ExpenseModel>> _expensesFuture;
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _expensesFuture = _fetchExpenses();
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<List<ExpenseModel>> _fetchExpenses() async {
+    final client = Supabase.instance.client;
+
+    try {
+      List<dynamic> response;
+
+      if (widget.groupId != null && widget.groupId!.isNotEmpty) {
+        // Fetch expenses for a specific group
+        response = await client
+            .from('expenses')
+            .select()
+            .eq('group_id', widget.groupId!)
+            .order('created_at', ascending: false);
+      } else {
+        // Fetch all expenses (global view from reports page)
+        response = await client
+            .from('expenses')
+            .select()
+            .order('created_at', ascending: false);
+      }
+
+      return response
+          .map((dynamic row) => row as Map<String, dynamic>)
+          .map(ExpenseModel.fromJson)
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception('Gagal memuat data pengeluaran: ${e.message}');
+    }
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _expensesFuture = _fetchExpenses();
+    });
+    await _expensesFuture;
+  }
+
+  List<ExpenseModel> _applyFilter(List<ExpenseModel> expenses) {
+    if (_selectedFilter == 'all') return expenses;
+    return expenses
+        .where((ExpenseModel e) => e.category.value == _selectedFilter)
+        .toList();
   }
 
   @override
@@ -109,7 +128,7 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
                   ),
                 ),
                 Expanded(
-                  child: _buildExpensesList(),
+                  child: _buildBody(),
                 ),
               ],
             ),
@@ -117,25 +136,136 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute<void>(
               builder: (BuildContext context) => AddExpensePage(
-                groupId: widget.groupId,
+                groupId: widget.groupId ?? '',
                 groupName: 'Keluarga Cemara',
-                userId: 'user-123',
-                members: <Member>[
-                  Member(id: '1', name: 'John', avatarUrl: ''),
-                  Member(id: '2', name: 'Jane', avatarUrl: ''),
-                  Member(id: '3', name: 'Bob', avatarUrl: ''),
-                ],
+                userId: Supabase.instance.client.auth.currentUser?.id ?? '',
+                members: <Member>[],
               ),
             ),
           );
+          // Refresh after returning from add page
+          _refresh();
         },
         backgroundColor: const Color(0xFFD70F1F),
         child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    return FutureBuilder<List<ExpenseModel>>(
+      future: _expensesFuture,
+      builder: (BuildContext context, AsyncSnapshot<List<ExpenseModel>> snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFFD70F1F)),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _buildErrorState(snapshot.error.toString());
+        }
+
+        final List<ExpenseModel> allExpenses = snapshot.data ?? <ExpenseModel>[];
+        final List<ExpenseModel> filtered = _applyFilter(allExpenses);
+
+        if (filtered.isEmpty) {
+          return RefreshIndicator(
+            color: const Color(0xFFD70F1F),
+            onRefresh: _refresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const <Widget>[
+                SizedBox(height: 120),
+                Center(
+                  child: Column(
+                    children: <Widget>[
+                      Icon(
+                        Icons.receipt_long_outlined,
+                        color: Color(0xFFBDB8B5),
+                        size: 48,
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Tidak ada pengeluaran',
+                        style: TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          color: const Color(0xFFD70F1F),
+          onRefresh: _refresh,
+          child: ListView.builder(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            itemCount: filtered.length,
+            itemBuilder: (BuildContext context, int index) {
+              return _buildExpenseItem(filtered[index]);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Color(0xFFD70F1F),
+              size: 46,
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Gagal memuat data',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF242A36),
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF807A78),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _refresh,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD70F1F),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -180,54 +310,26 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
     );
   }
 
-  Widget _buildExpensesList() {
-    final List<Map<String, dynamic>> filteredExpenses = _selectedFilter == 'all'
-        ? _expenses
-        : _expenses
-            .where((Map<String, dynamic> e) => e['category'] == _selectedFilter)
-            .toList();
-
-    if (filteredExpenses.isEmpty) {
-      return const Center(
-        child: Text(
-          'Tidak ada pengeluaran',
-          style: TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      itemCount: filteredExpenses.length,
-      itemBuilder: (BuildContext context, int index) {
-        final Map<String, dynamic> expense = filteredExpenses[index];
-        return _buildExpenseItem(expense);
-      },
-    );
-  }
-
-  Widget _buildExpenseItem(Map<String, dynamic> expense) {
+  Widget _buildExpenseItem(ExpenseModel expense) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final bool? changed = await Navigator.push<bool>(
           context,
-          MaterialPageRoute<void>(
+          MaterialPageRoute<bool>(
             builder: (BuildContext context) => ExpenseDetailPage(
-              expenseId: expense['id'] as String,
-              description: expense['description'] as String,
-              amount: expense['amount'] as double,
-              category: expense['category'] as String,
-              paidBy: expense['paidBy'] as String,
-              date: expense['date'] as DateTime,
-              itemCount: expense['itemCount'] as int?,
+              expenseId: expense.id,
+              description: expense.description,
+              amount: expense.amount,
+              category: expense.category.value,
+              paidBy: expense.paidBy,
+              date: expense.createdAt,
+              itemCount: expense.itemCount,
             ),
           ),
         );
+        if (changed == true) {
+          _refresh();
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -243,11 +345,11 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: _getCategoryColor(expense['category']),
+                color: _getCategoryColor(expense.category.value),
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                _getCategoryIcon(expense['category']),
+                _getCategoryIcon(expense.category.value),
                 color: Colors.white,
                 size: 20,
               ),
@@ -258,7 +360,7 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    expense['description'] as String,
+                    expense.description,
                     style: const TextStyle(
                       color: Color(0xFF111827),
                       fontSize: 13,
@@ -267,7 +369,7 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${expense['paidBy']} • ${_formatDate(expense['date'] as DateTime)}',
+                    '${_shortenPayerId(expense.paidBy)} • ${_formatDate(expense.createdAt)}',
                     style: const TextStyle(
                       color: Color(0xFF6B7280),
                       fontSize: 11,
@@ -279,7 +381,7 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
             ),
             const SizedBox(width: 8),
             Text(
-              _formatCurrency(expense['amount'] as double),
+              _formatCurrency(expense.amount),
               style: const TextStyle(
                 color: Color(0xFF111827),
                 fontSize: 13,
@@ -317,27 +419,25 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
   }
 
   String _formatCurrency(double value) {
-    final String fixed = value.toStringAsFixed(2);
-    final List<String> parts = fixed.split('.');
-    final String whole = parts.first;
-    final StringBuffer buffer = StringBuffer();
-
-    for (int i = 0; i < whole.length; i++) {
-      final int reverseIndex = whole.length - i;
-      buffer.write(whole[i]);
-      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-        buffer.write(',');
-      }
-    }
-
-    return '\$${buffer.toString()}.${parts.last}';
+    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+        .format(value);
   }
 
   String _formatDate(DateTime date) {
     final List<String> months = <String>[
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
     ];
     return '${date.day} ${months[date.month - 1]}';
+  }
+
+  /// Shortens a UUID payer ID to a more readable format.
+  /// If it's already a readable name, returns as-is.
+  String _shortenPayerId(String payerId) {
+    // If it looks like a UUID, show a shortened version
+    if (RegExp(r'^[0-9a-fA-F]{8}-').hasMatch(payerId)) {
+      return 'User ${payerId.substring(0, 6)}';
+    }
+    return payerId;
   }
 }

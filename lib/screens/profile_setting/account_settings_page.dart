@@ -816,14 +816,14 @@ class _AccountBottomNav extends StatelessWidget {
           children: [
             _AccountBottomItem(
               icon: Icons.home_rounded,
-              label: 'Home',
-              onTap: () => Navigator.of(context).pushReplacementNamed('/home'),
+              label: 'Beranda',
+              onTap: () => Navigator.of(context).pushReplacementNamed('/beranda'),
             ),
             _AccountBottomItem(
               icon: Icons.groups_2_outlined,
-              label: 'Groups',
+              label: 'Grup',
               onTap: () =>
-                  Navigator.of(context).pushReplacementNamed('/groups'),
+                  Navigator.of(context).pushReplacementNamed('/grup'),
             ),
             Container(
               width: 52,
@@ -843,13 +843,13 @@ class _AccountBottomNav extends StatelessWidget {
             ),
             _AccountBottomItem(
               icon: Icons.analytics_outlined,
-              label: 'Reports',
+              label: 'Laporan',
               onTap: () =>
-                  Navigator.of(context).pushReplacementNamed('/reports'),
+                  Navigator.of(context).pushReplacementNamed('/laporan'),
             ),
             const _AccountBottomItem(
               icon: Icons.person_outline_rounded,
-              label: 'Profile',
+              label: 'Profil',
               selected: true,
             ),
           ],
