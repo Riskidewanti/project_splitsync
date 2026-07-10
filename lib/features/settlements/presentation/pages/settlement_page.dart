@@ -130,10 +130,10 @@ class _SettlementPageState extends State<SettlementPage> {
   /// defaults whenever the friend list changes.
   void _initPerFriendMaps() {
     final List<_SettlementFriend> all = _allParticipants;
-    final double equalPercent =
-        all.isEmpty ? 0 : (100.0 / all.length);
-    final double equalAmount =
-        all.isEmpty ? 0 : (widget.totalBill / all.length);
+    final double equalPercent = all.isEmpty ? 0 : (100.0 / all.length);
+    final double equalAmount = all.isEmpty
+        ? 0
+        : (widget.totalBill / all.length);
 
     for (final _SettlementFriend f in all) {
       _percentages.putIfAbsent(f.id, () => equalPercent);
@@ -141,21 +141,14 @@ class _SettlementPageState extends State<SettlementPage> {
     }
   }
 
-  List<_SettlementFriend> get _allParticipants => <_SettlementFriend>[
-        const _SettlementFriend(id: 'current-user', name: 'You', avatarUrl: ''),
-        ..._friends,
-      ];
+  List<_SettlementFriend> get _allParticipants => [
+    _SettlementFriend(id: widget.userId, name: 'You', avatarUrl: ''),
+    ..._friends,
+  ];
 
   /// Returns the split_method string for the currently selected tab.
   String get _splitMethod {
-    switch (_selectedTabIndex) {
-      case 1:
-        return 'percentage';
-      case 2:
-        return 'exact';
-      default:
-        return 'equal';
-    }
+    return _selectedTabIndex == 1 ? 'percentage' : 'equal';
   }
 
   /// Recalculates every participant's percentage from their custom amount.
@@ -251,7 +244,7 @@ class _SettlementPageState extends State<SettlementPage> {
                       _buildTabContent(participants, splitAmount),
                       const SizedBox(height: 14),
                     ],
-                    _AddFriendButton(onTap: _showAddFriendDialog),
+                    const SizedBox.shrink(),
                     const Spacer(),
                     _SubmitButton(onPressed: _handleSubmit),
                   ],
@@ -266,32 +259,21 @@ class _SettlementPageState extends State<SettlementPage> {
     List<_SettlementFriend> participants,
     double equalSplitAmount,
   ) {
-    switch (_selectedTabIndex) {
-      // ── Tab 1 : Presentase ────────────────────────────────────
-      case 1:
-        return _PercentageCard(
-          participants: participants,
-          totalBill: widget.totalBill,
-          percentages: _percentages,
-          onPercentageChanged: (String id, double value) {
-            setState(() => _percentages[id] = value);
-          },
-        );
-      // ── Tab 2 : Kustom ────────────────────────────────────────
-      case 2:
-        return _CustomAmountCard(
-          participants: participants,
-          totalBill: widget.totalBill,
-          customAmounts: _customAmounts,
-          onAmountChanged: _updateCustomAmount,
-        );
-      // ── Tab 0 : Pembagian (default – equal split) ─────────────
-      default:
-        return _ParticipantsCard(
-          participants: participants,
-          splitAmount: equalSplitAmount,
-        );
+    if (_selectedTabIndex == 1) {
+      return _PercentageCard(
+        participants: participants,
+        totalBill: widget.totalBill,
+        percentages: _percentages,
+        onPercentageChanged: (String id, double value) {
+          setState(() => _percentages[id] = value);
+        },
+      );
     }
+
+    return _ParticipantsCard(
+      participants: participants,
+      splitAmount: equalSplitAmount,
+    );
   }
 
   void _showAddFriendDialog() {
@@ -407,7 +389,7 @@ class _SegmentedTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const List<String> labels = <String>['Pembagian', 'Presentase', 'Kustom'];
+    const List<String> labels = <String>['Pembagian', 'Presentase'];
 
     return Container(
       height: 30,
@@ -630,8 +612,9 @@ class _PercentageCard extends StatelessWidget {
                           ? pct.toInt().toString()
                           : pct.toStringAsFixed(1),
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: index == 0
@@ -642,8 +625,10 @@ class _PercentageCard extends StatelessWidget {
                     ),
                     decoration: const InputDecoration(
                       isDense: true,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 8,
+                      ),
                       suffixText: '%',
                       suffixStyle: TextStyle(
                         fontSize: 12,
@@ -751,8 +736,10 @@ class _CustomAmountCard extends StatelessWidget {
                   icon: const Icon(Icons.edit, size: 16),
                   color: _SettlementPageState._muted,
                   padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 28,
+                  ),
                   splashRadius: 18,
                   onPressed: () => _showEditDialog(context, friend, amount),
                 ),
@@ -891,15 +878,15 @@ class _AddFriendButton extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'TAMBAH TEMAN',
-              style: TextStyle(
-                color: _SettlementPageState._primary,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
-              ),
-            ),
+            // const Text(
+            //   'TAMBAH TEMAN',
+            //   style: TextStyle(
+            //     color: _SettlementPageState._primary,
+            //     fontSize: 10,
+            //     fontWeight: FontWeight.w800,
+            //     letterSpacing: 0.4,
+            //   ),
+            // ),
           ],
         ),
       ),

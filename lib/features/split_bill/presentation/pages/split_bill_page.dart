@@ -683,7 +683,7 @@ class _SegmentedTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const List<String> labels = <String>['Pembagian', 'Presentase', 'Kustom'];
+    const List<String> labels = <String>['Pembagian', 'Presentase',];
 
     return Container(
       height: 30,
@@ -1038,15 +1038,15 @@ class _AddFriendButton extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'TAMBAH TEMAN',
-              style: TextStyle(
-                color: _SplitBillPageState._primary,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
-              ),
-            ),
+            // const Text(
+            //   'TAMBAH TEMAN',
+            //   style: TextStyle(
+            //     color: _SplitBillPageState._primary,
+            //     fontSize: 10,
+            //     fontWeight: FontWeight.w800,
+            //     letterSpacing: 0.4,
+            //   ),
+            // ),
           ],
         ),
       ),

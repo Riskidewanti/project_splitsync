@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../authentication/auth_service.dart';
-
 class SettlementDebtListPage extends StatefulWidget {
   const SettlementDebtListPage({super.key, this.userId = ''});
 
@@ -39,10 +37,9 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
     });
 
     try {
-      final String currentUserId = await _resolveCurrentUserId();
-      final List<dynamic> rows = await _fetchDebtRows(currentUserId);
+      final List<dynamic> rows = await _fetchDebtRows();
       final List<_DebtItem> debts = rows
-          .map((dynamic row) => Map<String, dynamic>.from(row as Map))
+          .whereType<Map<String, dynamic>>()
           .map(_debtFromRow)
           .whereType<_DebtItem>()
           .toList();
@@ -67,36 +64,15 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
     }
   }
 
-  Future<String> _resolveCurrentUserId() async {
-    if (_isUuid(widget.userId)) return widget.userId;
-
-    final SessionProfile? session = await AuthService.currentSession();
-    final String? sessionUserId = session?.id;
-    if (sessionUserId != null && _isUuid(sessionUserId)) {
-      return sessionUserId;
-    }
-
-    final String? supabaseUserId =
-        Supabase.instance.client.auth.currentUser?.id;
-    if (supabaseUserId != null && _isUuid(supabaseUserId)) {
-      return supabaseUserId;
-    }
-
-    throw const AuthException(
-      'Akun aktif belum ditemukan. Silakan login terlebih dahulu.',
-    );
-  }
-
-  Future<List<dynamic>> _fetchDebtRows(String currentUserId) async {
+  Future<List<dynamic>> _fetchDebtRows() async {
     try {
       final List<dynamic> rows = await _baseDebtQuery(
         Supabase.instance.client
             .from('split_bill')
             .select(
-              'id,user_id,exact_amount,category,currency,created_at,is_paid,profiles:user_id(user_name,email,avatar_url)',
+              'id,user_id,exact_amount,category,currency,created_at,is_paid,profiles:user_id(full_name,display_name,name,avatar_url,photo_url)',
             ),
         onlyUnpaid: true,
-        currentUserId: currentUserId,
       );
       _canMarkAsPaid = true;
       return rows;
@@ -113,7 +89,6 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
                 'id,user_id,exact_amount,category,currency,created_at,is_paid',
               ),
           onlyUnpaid: true,
-          currentUserId: currentUserId,
         );
         _canMarkAsPaid = true;
         return rows;
@@ -124,7 +99,6 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
             .from('split_bill')
             .select('id,user_id,exact_amount,category,currency,created_at'),
         onlyUnpaid: false,
-        currentUserId: currentUserId,
       );
       _canMarkAsPaid = false;
       return rows;
@@ -134,7 +108,6 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
   PostgrestFilterBuilder<List<Map<String, dynamic>>> _baseDebtQuery(
     PostgrestFilterBuilder<List<Map<String, dynamic>>> query, {
     required bool onlyUnpaid,
-    required String currentUserId,
   }) {
     PostgrestFilterBuilder<List<Map<String, dynamic>>> filtered = query.gt(
       'exact_amount',
@@ -144,7 +117,11 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
       filtered = filtered.eq('is_paid', false);
     }
 
-    return filtered.eq('user_id', currentUserId);
+    if (_isUuid(widget.userId)) {
+      return filtered.eq('user_id', widget.userId);
+    }
+
+    return filtered;
   }
 
   _DebtItem? _debtFromRow(Map<String, dynamic> row) {
@@ -166,12 +143,14 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
       id: id,
       userId: userId,
       name: _firstNotEmpty(<Object?>[
-        profileMap?['user_name'],
-        profileMap?['email'],
+        profileMap?['full_name'],
+        profileMap?['display_name'],
+        profileMap?['name'],
         'Teman ${userId.length >= 4 ? userId.substring(0, 4) : userId}',
       ]),
       avatarUrl: _firstNotEmpty(<Object?>[
         profileMap?['avatar_url'],
+        profileMap?['photo_url'],
       ], fallback: ''),
       description: _descriptionFor(category, row['created_at']),
       category: category,

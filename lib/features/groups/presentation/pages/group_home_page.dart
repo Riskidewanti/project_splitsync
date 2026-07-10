@@ -13,6 +13,7 @@ import '../widgets/group_card.dart';
 import '../../../../screens/profile_setting/profile_settings_page.dart';
 import '../../../../screens/home/home_page.dart';
 import '../../../../reports/reports_page.dart';
+import '../../../../add_friends_page.dart';
 
 class GroupHomePage extends StatefulWidget {
   const GroupHomePage({super.key, this.repository});
@@ -33,9 +34,9 @@ class _GroupHomePageState extends State<GroupHomePage> {
   @override
   void initState() {
     super.initState();
-    _groupRepository = widget.repository ?? GroupRepositoryImpl(
-      remoteDataSource: GroupRemoteDataSourceImpl(),
-    );
+    _groupRepository =
+        widget.repository ??
+        GroupRepositoryImpl(remoteDataSource: GroupRemoteDataSourceImpl());
     _loadGroups();
   }
 
@@ -128,15 +129,15 @@ class _GroupHomePageState extends State<GroupHomePage> {
   }
 
   Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const NotificationsPage()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const NotificationsPage()));
   }
 
   Future<void> _openCreateGroup() async {
-    final Object? created = await Navigator.of(context).push(
-      MaterialPageRoute<bool>(builder: (_) => const CreateGroupPage()),
-    );
+    final Object? created = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<bool>(builder: (_) => const CreateGroupPage()));
 
     if (created == true) {
       await _refreshGroups();
@@ -153,10 +154,10 @@ class _GroupHomePageState extends State<GroupHomePage> {
     final String source = member.displayName?.trim().isNotEmpty == true
         ? member.displayName!
         : member.email?.trim().isNotEmpty == true
-            ? member.email!
-            : userId.isNotEmpty
-                ? userId.substring(0, 1)
-                : '?';
+        ? member.email!
+        : userId.isNotEmpty
+        ? userId.substring(0, 1)
+        : '?';
     final String trimmed = source.trim();
     return trimmed.isEmpty ? '?' : trimmed.characters.first.toUpperCase();
   }
@@ -175,7 +176,6 @@ class _GroupHomePageState extends State<GroupHomePage> {
     return Icons.groups_outlined;
   }
 
-
   @override
   Widget build(BuildContext context) {
     try {
@@ -193,6 +193,36 @@ class _GroupHomePageState extends State<GroupHomePage> {
                     padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),
                     children: <Widget>[
                       _GroupSectionHeader(onCreateGroup: _openCreateGroup),
+
+                      const SizedBox(height: 12),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 46,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AddFriendsPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.person_add_alt_1),
+                          label: const Text(
+                            'Tambah Teman',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFC70F1B),
+                            side: const BorderSide(color: Color(0xFFC70F1B)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+
                       const SizedBox(height: AppSpacing.md),
                       if (_isLoading)
                         const _LoadingState()
@@ -227,7 +257,8 @@ class _GroupHomePageState extends State<GroupHomePage> {
                                 statusStyle: _groups[index].statusStyle,
                                 icon: _groups[index].icon,
                                 memberInitials: _groups[index].memberInitials,
-                                extraMemberCount: _groups[index].extraMemberCount,
+                                extraMemberCount:
+                                    _groups[index].extraMemberCount,
                               ),
                             ),
                           ),
@@ -252,6 +283,7 @@ class _GroupHomePageState extends State<GroupHomePage> {
     }
   }
 }
+
 class _GroupCardData {
   const _GroupCardData({
     required this.id,
@@ -356,9 +388,7 @@ class _GroupSectionHeader extends StatelessWidget {
           child: Theme(
             data: Theme.of(context).copyWith(
               filledButtonTheme: FilledButtonThemeData(
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 48),
-                ),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
               ),
             ),
             child: FilledButton(
@@ -383,32 +413,31 @@ class _GroupSectionHeader extends StatelessWidget {
   }
 }
 
-
 class SmoothTransitionRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
 
   SmoothTransitionRoute({required this.page})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const curve = Curves.easeInOutCubic;
-            final CurvedAnimation curvedAnimation = CurvedAnimation(
-              parent: animation,
-              curve: curve,
-            );
-            return FadeTransition(
-              opacity: curvedAnimation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0.0, 0.02),
-                  end: Offset.zero,
-                ).animate(curvedAnimation),
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 250),
-        );
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const curve = Curves.easeInOutCubic;
+          final CurvedAnimation curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: curve,
+          );
+          return FadeTransition(
+            opacity: curvedAnimation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.02),
+                end: Offset.zero,
+              ).animate(curvedAnimation),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 250),
+      );
 }
 
 class _SplitSyncBottomNavigation extends StatelessWidget {
@@ -438,9 +467,9 @@ class _SplitSyncBottomNavigation extends StatelessWidget {
           _BottomNavigationItem(
             icon: Icons.home,
             label: 'Beranda',
-            onTap: () => Navigator.of(context).pushReplacement(
-              SmoothTransitionRoute(page: const HomePage()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).pushReplacement(SmoothTransitionRoute(page: const HomePage())),
           ),
           const _BottomNavigationItem(
             icon: Icons.groups_outlined,
@@ -451,9 +480,9 @@ class _SplitSyncBottomNavigation extends StatelessWidget {
           _BottomNavigationItem(
             icon: Icons.bar_chart,
             label: 'Laporan',
-            onTap: () => Navigator.of(context).pushReplacement(
-              SmoothTransitionRoute(page: const ReportsPage()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).pushReplacement(SmoothTransitionRoute(page: const ReportsPage())),
           ),
           _BottomNavigationItem(
             icon: Icons.person_outline,
@@ -495,7 +524,7 @@ class _BottomNavigationItem extends StatelessWidget {
         height: 56,
         decoration: BoxDecoration(
           color: isActive ? const Color(0xFFFFD7D7) : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppRadius.md),
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -548,6 +577,7 @@ class _CenterCreateButton extends StatelessWidget {
     );
   }
 }
+
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
 

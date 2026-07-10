@@ -24,6 +24,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       const <_FriendRequestNotification>[];
   List<_DebtNotification> _debtNotifications = const <_DebtNotification>[];
   bool _isLoading = true;
+  bool _processingRequest = false;
   Object? _error;
   String? _currentProfileId;
 
@@ -49,6 +50,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final List<dynamic> requestRows = await _client
           .from('friend_requests')
           .select('id,requester_id,addressee_id,status,created_at')
+          .eq('status', 'pending')
           .or('requester_id.eq.$currentId,addressee_id.eq.$currentId')
           .order('created_at', ascending: false);
 
@@ -158,49 +160,59 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _FriendRequestNotification notification,
     String status,
   ) async {
+    if (_processingRequest) return;
+
+    setState(() {
+      _processingRequest = true;
+    });
+
     try {
-      bool friendshipSaved = true;
+      debugPrint("KLIK TOMBOL TERIMA");
+
       if (status == 'accepted') {
-        friendshipSaved = await FriendRequestService.saveAcceptedFriendship(
+        await FriendRequestService.acceptRequest(
+          requestId: notification.id,
           requesterId: notification.requesterId,
           addresseeId: notification.addresseeId,
-          requestId: notification.id,
         );
+      } else {
+        await FriendRequestService.rejectRequest(notification.id);
       }
 
-      await _client
-          .from('friend_requests')
-          .update(<String, dynamic>{'status': status})
-          .eq('id', notification.id);
+      debugPrint("REQUEST BERHASIL");
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
             content: Text(
               status == 'accepted'
-                  ? friendshipSaved
-                        ? 'Permintaan pertemanan diterima.'
-                        : 'Permintaan diterima. Tabel friends belum ada di database.'
-                  : 'Permintaan pertemanan ditolak.',
+                  ? 'Permintaan pertemanan diterima.'
+                  : 'Permintaan ditolak.',
             ),
-            backgroundColor: friendshipSaved
-                ? NotificationsPage.primaryColor
-                : const Color(0xFFB56A00),
           ),
         );
+
       await _loadNotifications();
-    } catch (error) {
+    } catch (e, s) {
+      debugPrint("======================");
+      debugPrint(e.toString());
+      debugPrint(s.toString());
+      debugPrint("======================");
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text('Gagal memperbarui permintaan: $error'),
-            backgroundColor: const Color(0xFF9A0010),
-          ),
-        );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processingRequest = false;
+        });
+      }
     }
   }
 
@@ -236,6 +248,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             backgroundColor: const Color(0xFF9A0010),
           ),
         );
+      debugPrint("NOTIFICATION RELOAD");
     }
   }
 
@@ -284,7 +297,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 onRefresh: _loadNotifications,
                 color: NotificationsPage.primaryColor,
                 child: ListView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
                   children: <Widget>[
                     if (_isLoading)
                       const _NotificationsLoadingState()
@@ -1257,6 +1270,7 @@ class _CenterAddButton extends StatelessWidget {
     );
   }
 }
+
 class _BottomItem extends StatelessWidget {
   const _BottomItem({
     required this.icon,

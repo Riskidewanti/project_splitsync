@@ -158,7 +158,17 @@ class _ConfirmExpensePageState extends State<ConfirmExpensePage> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  onPressed: _isSaving ? null : _saveSplitBill,
+                  onPressed: _isSaving
+                      ? null
+                      : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Halaman ini sudah tidak digunakan',
+                              ),
+                            ),
+                          );
+                        },
                   child: _isSaving
                       ? const SizedBox.square(
                           dimension: 22,
@@ -181,87 +191,6 @@ class _ConfirmExpensePageState extends State<ConfirmExpensePage> {
         ),
       ),
     );
-  }
-
-  Future<void> _saveSplitBill() async {
-    setState(() => _isSaving = true);
-
-    try {
-      final List<Map<String, dynamic>> rows = _splitBillRows();
-      await Supabase.instance.client.from('split_bill').insert(rows);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Split bill berhasil disimpan')),
-        );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(_saveErrorMessage(error))));
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
-  List<Map<String, dynamic>> _splitBillRows() {
-    final String now = DateTime.now().toUtc().toIso8601String();
-    final List<SplitBillParticipantInput> participants =
-        widget.participants.isEmpty
-        ? <SplitBillParticipantInput>[
-            SplitBillParticipantInput(
-              displayName: 'You',
-              userId: widget.userId,
-              amount: widget.totalAmount,
-              percentage: widget.splitMethod == 'percentage' ? 100 : null,
-              isPayer: true,
-            ),
-          ]
-        : widget.participants;
-
-    return participants.map((SplitBillParticipantInput participant) {
-      final String expenseItemId = _isUuid(participant.expenseItemId)
-          ? participant.expenseItemId
-          : _fallbackExpenseItemId;
-      final Map<String, dynamic> row = <String, dynamic>{
-        'expense_item_id': expenseItemId,
-        'share_quantity': 1,
-        'share_percentage': participant.percentage,
-        'exact_amount': participant.amount,
-        'category': widget.category,
-        'currency': 'IDR',
-        'created_at': now,
-        'updated_at': now,
-      };
-      _putUuidIfValid(row, 'user_id', participant.userId);
-      row.removeWhere((String key, dynamic value) => value == null);
-      return row;
-    }).toList();
-  }
-
-  String _saveErrorMessage(Object error) {
-    final String message = error.toString();
-    if (message.contains('PGRST205') ||
-        message.contains("Could not find the table 'public.split_bill'")) {
-      return 'Tabel split_bill belum dibuat di Supabase. Jalankan migration SQL terlebih dahulu.';
-    }
-
-    if (message.contains('42501') ||
-        message.contains('row-level security policy')) {
-      return 'Policy RLS split_bill belum mengizinkan insert. Jalankan update policy SQL di Supabase.';
-    }
-
-    if (message.contains('23502') && message.contains('expense_item_id')) {
-      return 'expense_item_id wajib diisi. Kode sudah menyiapkan UUID otomatis; restart aplikasi lalu coba simpan lagi.';
-    }
-
-    if (message.contains('23503') && message.contains('expense_item_id')) {
-      return 'expense_item_id punya relasi ke tabel lain. Gunakan id item asli dari database atau ubah kolom expense_item_id agar nullable.';
-    }
-
-    return 'Gagal menyimpan: $error';
   }
 
   Future<void> _showAddTagDialog() async {

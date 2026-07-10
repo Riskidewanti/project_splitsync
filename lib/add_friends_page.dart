@@ -12,9 +12,14 @@ class AddFriendsPage extends StatefulWidget {
 
 class _AddFriendsPageState extends State<AddFriendsPage> {
   final _searchController = TextEditingController();
+
   late Future<List<FriendProfile>> _recommendationsFuture;
-  FriendProfile? _selectedFriend;
+
+  List<FriendProfile> _searchResult = [];
+
+  FriendProfile? _selectedFriend; // TAMBAHKAN
   FriendProfile? _sentFriend;
+
   bool _sending = false;
 
   @override
@@ -30,11 +35,29 @@ class _AddFriendsPageState extends State<AddFriendsPage> {
   }
 
   Future<void> _searchFriend(String value) async {
-    final friend = await FriendRequestService.findFriend(value);
-    if (!mounted) return;
-    setState(() => _selectedFriend = friend);
-    if (friend == null && value.trim().isNotEmpty) {
-      _showMessage('User tidak ditemukan.');
+    final keyword = value.trim();
+
+    if (keyword.isEmpty) {
+      setState(() {
+        _searchResult = [];
+        _selectedFriend = null;
+      });
+      return;
+    }
+
+    try {
+      final result = await FriendRequestService.searchFriends(keyword);
+
+      if (!mounted) return;
+
+      setState(() {
+        _searchResult = result;
+        _selectedFriend = result.isNotEmpty ? result.first : null;
+      });
+
+      debugPrint("SEARCH RESULT : ${result.length}");
+    } catch (e) {
+      debugPrint(e.toString());
     }
   }
 
@@ -136,52 +159,73 @@ class _AddFriendsPageState extends State<AddFriendsPage> {
                                 children: [
                                   _SearchBox(
                                     controller: _searchController,
-                                    onSubmitted: _searchFriend,
-                                  ),
-                                  SizedBox(height: layout.space(28)),
-                                  const _FriendsListShortcut(),
-                                  if (_selectedFriend != null) ...[
-                                    SizedBox(height: layout.space(28)),
-                                    _FriendTile(
-                                      friend: _selectedFriend!,
-                                      onAdd: _selectedFriend!.sent
-                                          ? null
-                                          : () => _sendRequest(
-                                              friend: _selectedFriend,
-                                            ),
-                                    ),
-                                  ],
-                                  SizedBox(height: layout.space(36)),
-                                  FutureBuilder<List<FriendProfile>>(
-                                    future: _recommendationsFuture,
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return Center(
-                                          child: Padding(
-                                            padding: EdgeInsets.all(
-                                              layout.space(18),
-                                            ),
-                                            child:
-                                                const CircularProgressIndicator(
-                                                  color: Color(0xFFC8152B),
-                                                ),
-                                          ),
-                                        );
-                                      }
-
-                                      final friends = snapshot.data ?? const [];
-                                      if (friends.isEmpty) {
-                                        return const SizedBox.shrink();
-                                      }
-
-                                      return _RecommendationList(
-                                        friends: friends,
-                                        onAdd: (friend) =>
-                                            _sendRequest(friend: friend),
-                                      );
+                                    onSubmitted: (value) {
+                                      _searchFriend(value);
                                     },
                                   ),
+
+                                  const SizedBox(height: 24),
+
+                                  const _FriendsListShortcut(),
+                                  if (_searchResult.isNotEmpty) ...[
+                                    Text(
+                                      "Hasil Pencarian",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: layout.font(22),
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 16),
+
+                                    Column(
+                                      children: _searchResult.map((friend) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          child: _FriendTile(
+                                            friend: friend,
+                                            onAdd: friend.sent
+                                                ? null
+                                                : () => _sendRequest(
+                                                    friend: friend,
+                                                  ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+
+                                    const SizedBox(height: 24),
+                                  ],
+                                  SizedBox(height: layout.space(36)),
+                                  if (_searchController.text.trim().isEmpty)
+                                    FutureBuilder<List<FriendProfile>>(
+                                      future: _recommendationsFuture,
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState ==
+                                            ConnectionState.waiting) {
+                                          return const Center(
+                                            child: CircularProgressIndicator(),
+                                          );
+                                        }
+
+                                        final friends = snapshot.data ?? [];
+
+                                        return _RecommendationList(
+                                          friends: friends,
+                                          onAdd: (friend) =>
+                                              _sendRequest(friend: friend),
+                                        );
+                                      },
+                                    )
+                                  else if (_searchResult.isEmpty)
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 20),
+                                      child: Center(
+                                        child: Text("User tidak ditemukan"),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -193,29 +237,26 @@ class _AddFriendsPageState extends State<AddFriendsPage> {
                 );
               },
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: EdgeInsets.fromLTRB(
-                  layout.pagePadding,
-                  layout.space(14),
-                  layout.pagePadding,
-                  layout.space(22),
-                ),
-                color: const Color(0xFFFFFBF8),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 430),
-                    child: _RequestButton(
-                      sending: _sending,
-                      onPressed: _sendRequest,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            // Positioned(
+            //   left: 0,
+            //   right: 0,
+            //   bottom: 0,
+            //   child: Container(
+            //     padding: EdgeInsets.fromLTRB(
+            //       layout.pagePadding,
+            //       layout.space(14),
+            //       layout.pagePadding,
+            //       layout.space(22),
+            //     ),
+            //     color: const Color(0xFFFFFBF8),
+            //     child: Center(
+            //       child: ConstrainedBox(
+            //         constraints: const BoxConstraints(maxWidth: 430),
+            //         child: const SizedBox.shrink(),
+            //       ),
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -286,7 +327,7 @@ class _RequestSentPage extends StatelessWidget {
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             layout.pagePadding,
-                            layout.space(70),
+                            layout.space(38),
                             layout.pagePadding,
                             layout.space(196),
                           ),
@@ -558,15 +599,16 @@ class _SearchBox extends StatelessWidget {
     final layout = _FriendRequestLayout.of(context);
     return TextField(
       controller: controller,
-      textInputAction: TextInputAction.search,
+      onChanged: onSubmitted,
       onSubmitted: onSubmitted,
+      textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         prefixIcon: Icon(
           Icons.search_rounded,
           color: const Color(0xFF806E6E),
           size: layout.space(30).clamp(25, 31),
         ),
-        hintText: 'Cari dengan nama atau namapengguna',
+        hintText: 'Cari username atau email',
         hintStyle: TextStyle(
           color: const Color(0xFF8B8585),
           fontSize: layout.font(20),
@@ -574,10 +616,7 @@ class _SearchBox extends StatelessWidget {
         ),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: layout.space(18),
-          vertical: layout.space(24).clamp(18, 24),
-        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
@@ -652,7 +691,7 @@ class _FriendsListShortcut extends StatelessWidget {
                   ),
                   SizedBox(height: layout.space(6)),
                   Text(
-                    'Kelola dan lihat semua teman yang\nsudah terhubung',
+                    'Kelola semua teman',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -692,26 +731,26 @@ class _RecommendationList extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text(
-                'Disarankan',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: const Color(0xFF111B2C),
-                  fontSize: layout.font(27),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            Text(
-              'Lihat Kontak',
-              style: TextStyle(
-                color: const Color(0xFF8F0010),
-                fontSize: layout.font(18),
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            // Expanded(
+            //   child: Text(
+            //     'Disarankan',
+            //     maxLines: 1,
+            //     overflow: TextOverflow.ellipsis,
+            //     style: TextStyle(
+            //       color: const Color(0xFF111B2C),
+            //       fontSize: layout.font(27),
+            //       fontWeight: FontWeight.w900,
+            //     ),
+            //   ),
+            // ),
+            // Text(
+            //   'Lihat Kontak',
+            //   style: TextStyle(
+            //     color: const Color(0xFF8F0010),
+            //     fontSize: layout.font(18),
+            //     fontWeight: FontWeight.w800,
+            //   ),
+            // ),
           ],
         ),
         SizedBox(height: layout.space(24)),
@@ -815,24 +854,21 @@ class _FriendTile extends StatelessWidget {
                     ],
                   ),
                 )
-              : FilledButton(
-                  onPressed: onAdd,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF8F0010),
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: layout.space(28).clamp(18, 28),
-                      vertical: layout.space(14).clamp(11, 14),
+              : SizedBox(
+                  width: 95,
+                  height: 40,
+                  child: FilledButton(
+                    onPressed: onAdd,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF8F0010),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
                     ),
-                    textStyle: TextStyle(
-                      fontSize: layout.font(17),
-                      fontWeight: FontWeight.w800,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
+                    child: const Text("Tambah"),
                   ),
-                  child: const Text('Tambah'),
                 ),
         ],
       ),

@@ -128,19 +128,14 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
     }
 
     if (_selectedSegment == 1) {
-      return _percentageControllers.map((TextEditingController controller) {
-        final double percentage = _parseNumber(controller.text);
+      return _percentageControllers.map((controller) {
+        final percentage = _parseNumber(controller.text);
         return widget.totalAmount * percentage / 100;
       }).toList();
     }
 
-    if (_selectedSegment == 2) {
-      return _customAmountControllers.map((TextEditingController controller) {
-        return _parseNumber(controller.text);
-      }).toList();
-    }
-
     final double equalAmount = widget.totalAmount / widget.members.length;
+
     return List<double>.filled(widget.members.length, equalAmount);
   }
 
@@ -157,27 +152,11 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
       }
     }
 
-    if (_selectedSegment == 2) {
-      final double assignedTotal = _customAmountControllers.fold<double>(
-        0,
-        (double total, TextEditingController controller) =>
-            total + _parseNumber(controller.text),
-      );
-
-      if ((assignedTotal - widget.totalAmount).abs() > 0.01) {
-        return 'Total kustom harus ${formatRupiah(widget.totalAmount)}.';
-      }
-    }
-
     return null;
   }
 
   String get _selectedSplitMethod {
-    return switch (_selectedSegment) {
-      1 => 'percentage',
-      2 => 'exact',
-      _ => 'equal',
-    };
+    return _selectedSegment == 1 ? 'percentage' : 'equal';
   }
 
   double get _currentUserSplitAmount {
@@ -237,8 +216,14 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
             currentUserSplitAmount: _currentUserSplitAmount,
             currentUserPercentage: _currentUserPercentage,
             groupId: widget.groupId,
+
+            participantIds: widget.members
+                .map((e) => e.userId)
+                .where((e) => e.isNotEmpty)
+                .toList(),
+
             note: null,
-            tags: <String>['dinner', 'supplies'],
+            tags: const <String>['dinner', 'supplies'],
           );
         },
       ),
@@ -327,37 +312,10 @@ class _SplitCalculationPageState extends State<SplitCalculationPage> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFD71920),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                      ),
-                      onPressed: () {},
-                      icon: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFFEEF0),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.add, size: 16),
-                      ),
-                      label: const Text(
-                        'TAMBAH TEMAN',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ),
-                  ),
                   const Spacer(),
                   SizedBox(
                     width: double.infinity,
-            height: 48,
+                    height: 48,
                     child: FilledButton(
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFFC70F1B),
@@ -398,7 +356,7 @@ class _SplitSegmentedControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const List<String> labels = <String>['Pembagian', 'Persentase', 'Kustom'];
+    const List<String> labels = <String>['Pembagian', 'Persentase'];
 
     return Container(
       width: double.infinity,
@@ -527,7 +485,6 @@ class _MemberListCard extends StatelessWidget {
                 selectedSegment: selectedSegment,
                 amount: amounts[index],
                 percentageController: percentageControllers[index],
-                customAmountController: customAmountControllers[index],
               ),
               if (index != members.length - 1)
                 const Divider(height: 1, color: Color(0xFFE8EAEE)),
@@ -545,7 +502,6 @@ class _MemberRow extends StatelessWidget {
     required this.selectedSegment,
     required this.amount,
     required this.percentageController,
-    required this.customAmountController,
   });
 
   final SplitMember member;
@@ -553,7 +509,6 @@ class _MemberRow extends StatelessWidget {
   final int selectedSegment;
   final double amount;
   final TextEditingController percentageController;
-  final TextEditingController customAmountController;
 
   @override
   Widget build(BuildContext context) {
@@ -589,11 +544,6 @@ class _MemberRow extends StatelessWidget {
             const SizedBox(width: 10),
             _PercentageBox(controller: percentageController),
             const SizedBox(width: 16),
-          ],
-          if (selectedSegment == 2) ...<Widget>[
-            const SizedBox(width: 10),
-            _AmountBox(controller: customAmountController),
-            const SizedBox(width: 16),
           ] else
             Text(
               formatRupiah(amount),
@@ -605,19 +555,6 @@ class _MemberRow extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-          if (selectedSegment == 2) ...<Widget>[
-            IconButton(
-              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              onPressed: () {},
-              icon: const Icon(
-                Icons.edit_outlined,
-                size: 17,
-                color: Color(0xFF4B5563),
-              ),
-            ),
-          ],
         ],
       ),
     );

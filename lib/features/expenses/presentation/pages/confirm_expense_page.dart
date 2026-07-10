@@ -21,6 +21,7 @@ class ConfirmExpensePage extends StatefulWidget {
     required this.currentUserSplitAmount,
     required this.currentUserPercentage,
     required this.groupId,
+    required this.participantIds,
     this.note,
     this.tags = const <String>[],
   });
@@ -40,6 +41,7 @@ class ConfirmExpensePage extends StatefulWidget {
   final double? currentUserPercentage;
   final String? note;
   final List<String> tags;
+  final List<String> participantIds;
 
   @override
   State<ConfirmExpensePage> createState() => _ConfirmExpensePageState();
@@ -60,27 +62,16 @@ class _ConfirmExpensePageState extends State<ConfirmExpensePage> {
     });
 
     try {
-      await _expenseRemoteDataSource.createExpense(
-        groupId: widget.groupId,
-        merchantName: widget.merchantName,
-        expenseDate: widget.expenseDate ?? DateTime.now(),
-        items: widget.items
-            .map(
-              (ReceiptItem item) => ExpenseItemDraft(
-                name: item.name,
-                quantity: item.quantity,
-                unitPrice: item.price,
-              ),
-            )
-            .toList(),
-        subtotal: widget.subtotal,
-        taxAmount: widget.tax,
-        serviceChargeAmount: widget.serviceFee,
-        discountAmount: 0,
-        totalAmount: widget.totalAmount,
-        splitMethod: widget.splitMethod,
-        currentUserSplitAmount: widget.currentUserSplitAmount,
-        currentUserPercentage: widget.currentUserPercentage,
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SuccessPage(
+            totalAmount: widget.totalAmount,
+            participantCount: widget.participantCount,
+          ),
+        ),
       );
 
       if (!mounted) {

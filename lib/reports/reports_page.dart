@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:splitsync/authentication/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/theme/app_theme.dart';
@@ -6,6 +7,7 @@ import '../screens/profile_setting/profile_settings_page.dart';
 import '../screens/home/home_page.dart';
 import '../features/groups/presentation/pages/group_home_page.dart';
 import '../features/expenses/presentation/pages/expense_history_page.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class ExpenseReport {
   const ExpenseReport({
@@ -35,6 +37,9 @@ class ReportSummary {
     required this.weeklyTotals,
     required this.categoryTotals,
     required this.biggestTransactions,
+    required this.transactionCount,
+    required this.averageExpense,
+    required this.sharedExpenseCount,
   });
 
   final num totalThisMonth;
@@ -43,6 +48,9 @@ class ReportSummary {
   final List<num> weeklyTotals;
   final Map<String, num> categoryTotals;
   final List<ExpenseReport> biggestTransactions;
+  final int transactionCount;
+  final num averageExpense;
+  final int sharedExpenseCount;
 
   double get changePercent {
     if (lastMonthTotal == 0) return totalThisMonth == 0 ? 0 : 100;
@@ -64,6 +72,7 @@ class _ReportsPageState extends State<ReportsPage> {
   @override
   void initState() {
     super.initState();
+    print("REPORT PAGE INIT");
     _summaryFuture = _ReportsRepository.fetchSummary();
   }
 
@@ -104,56 +113,65 @@ class _ReportsPageState extends State<ReportsPage> {
                   }
 
                   final summary = snapshot.requireData;
+
+                  final isEmpty =
+                      summary.totalThisMonth == 0 &&
+                      summary.biggestTransactions.isEmpty;
+
                   return RefreshIndicator(
                     color: const Color(0xFFC8152B),
                     onRefresh: _refresh,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(
-                        responsive.clamp(42, 24, 44),
-                        responsive.space(32),
-                        responsive.clamp(42, 24, 44),
-                        responsive.space(110),
-                      ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 430),
-                          child: Column(
-                            children: [
-                              _TotalSummary(summary: summary),
-                              SizedBox(height: responsive.space(32)),
-                              _ReportTabs(
-                                selected: _selectedTab,
-                                onChanged: (tab) {
-                                  setState(() => _selectedTab = tab);
-                                },
+                    child: isEmpty
+                        ? _EmptyReportState(onRefresh: _refresh)
+                        : SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(
+                              responsive.clamp(42, 24, 44),
+                              responsive.space(32),
+                              responsive.clamp(42, 24, 44),
+                              responsive.space(110),
+                            ),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 430,
+                                ),
+                                child: Column(
+                                  children: [
+                                    _TotalSummary(summary: summary),
+                                    SizedBox(height: responsive.space(32)),
+                                    _ReportTabs(
+                                      selected: _selectedTab,
+                                      onChanged: (tab) {
+                                        setState(() => _selectedTab = tab);
+                                      },
+                                    ),
+                                    SizedBox(height: responsive.space(28)),
+                                    _TrendCard(
+                                      values: _selectedTab == _ReportTab.daily
+                                          ? summary.dailyTotals
+                                          : summary.weeklyTotals,
+                                      labels: _selectedTab == _ReportTab.daily
+                                          ? const [
+                                              'Sen',
+                                              'Sel',
+                                              'Rab',
+                                              'Kam',
+                                              'Jum',
+                                              'Sab',
+                                              'Min',
+                                            ]
+                                          : const ['M1', 'M2', 'M3', 'M4'],
+                                    ),
+                                    SizedBox(height: responsive.space(22)),
+                                    _CategoryCard(summary: summary),
+                                    SizedBox(height: responsive.space(22)),
+                                    _BiggestTransactionsCard(summary: summary),
+                                  ],
+                                ),
                               ),
-                              SizedBox(height: responsive.space(28)),
-                              _TrendCard(
-                                values: _selectedTab == _ReportTab.daily
-                                    ? summary.dailyTotals
-                                    : summary.weeklyTotals,
-                                labels: _selectedTab == _ReportTab.daily
-                                    ? const [
-                                        'Sen',
-                                        'Sel',
-                                        'Rab',
-                                        'Kam',
-                                        'Jum',
-                                        'Sab',
-                                        'Min',
-                                      ]
-                                    : const ['M1', 'M2', 'M3', 'M4'],
-                              ),
-                              SizedBox(height: responsive.space(22)),
-                              _CategoryCard(summary: summary),
-                              SizedBox(height: responsive.space(22)),
-                              _BiggestTransactionsCard(summary: summary),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
                   );
                 },
               ),
@@ -175,6 +193,10 @@ class _ReportsRepository {
 
   static Future<ReportSummary> fetchSummary() async {
     final rows = await _fetchExpenseRows();
+
+    print('=== FETCH SUMMARY ===');
+    print('Rows from _fetchExpenseRows: ${rows.length}');
+
     final expenses = rows.map(_expenseFromRow).toList();
     final now = DateTime.now();
     final thisMonth = expenses.where((expense) {
@@ -196,18 +218,40 @@ class _ReportsRepository {
       weeklyTotals: _weeklyTotals(thisMonth, now),
       categoryTotals: _categoryTotals(thisMonth),
       biggestTransactions: thisMonth.take(5).toList(),
+
+      transactionCount: thisMonth.length,
+
+      averageExpense: thisMonth.isEmpty
+          ? 0
+          : _sum(thisMonth) / thisMonth.length,
+
+      sharedExpenseCount: thisMonth.where((e) => e.isShared).length,
     );
   }
 
   static Future<List<Map<String, dynamic>>> _fetchExpenseRows() async {
     try {
+      final session = await AuthService.currentSession();
+
+      if (session == null) {
+        return [];
+      }
+
       final rows = await _client
           .from('expenses')
-          .select()
+          .select('''
+          *,
+          groups(name)
+        ''')
+          .eq('created_by', session.id)
           .order('created_at', ascending: false);
+
+      debugPrint("USER : ${session.id}");
+      debugPrint("ROWS : ${rows.length}");
+
       return List<Map<String, dynamic>>.from(rows);
-    } on PostgrestException catch (error) {
-      throw Exception('Data pengeluaran belum bisa dimuat: ${error.message}');
+    } on PostgrestException catch (e) {
+      throw Exception(e.message);
     }
   }
 
@@ -228,11 +272,11 @@ class _ReportsRepository {
       'category_name',
       'type',
     ], fallback: 'Lainnya');
-    final groupName = _firstText(row, const [
-      'group_name',
-      'group',
-      'merchant',
-    ], fallback: 'Pribadi');
+    final group = row['groups'];
+
+    final groupName = group is Map<String, dynamic>
+        ? (group['name'] ?? 'Pribadi').toString()
+        : 'Pribadi';
     final createdAt =
         DateTime.tryParse((row['created_at'] ?? '').toString()) ??
         DateTime.now();
@@ -277,9 +321,12 @@ class _ReportsRepository {
   }
 
   static List<num> _weeklyTotals(List<ExpenseReport> expenses, DateTime now) {
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+
     return List.generate(4, (index) {
       final startDay = 1 + (index * 7);
-      final endDay = index == 3 ? 31 : startDay + 6;
+      final endDay = (startDay + 6 > daysInMonth) ? daysInMonth : startDay + 6;
+
       return _sum(
         expenses
             .where(
@@ -481,6 +528,45 @@ class _TotalSummary extends StatelessWidget {
             ),
           ],
         ),
+        SizedBox(height: responsive.space(28)),
+
+        Row(
+          children: [
+            Expanded(
+              child: _SummaryInfoCard(
+                title: "Transaksi",
+                value: summary.transactionCount.toString(),
+              ),
+            ),
+            SizedBox(width: responsive.space(12)),
+            Expanded(
+              child: _SummaryInfoCard(
+                title: "Rata-rata",
+                value: _formatRupiah(summary.averageExpense),
+              ),
+            ),
+          ],
+        ),
+
+        SizedBox(height: responsive.space(12)),
+
+        Row(
+          children: [
+            Expanded(
+              child: _SummaryInfoCard(
+                title: "Shared Bill",
+                value: summary.sharedExpenseCount.toString(),
+              ),
+            ),
+            SizedBox(width: responsive.space(12)),
+            Expanded(
+              child: _SummaryInfoCard(
+                title: "Bulan",
+                value: _monthLabel(DateTime.now()),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -562,6 +648,81 @@ class _TabButton extends StatelessWidget {
   }
 }
 
+// class _TrendCard extends StatelessWidget {
+//   const _TrendCard({required this.values, required this.labels});
+
+//   final List<num> values;
+//   final List<String> labels;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final responsive = _ReportsResponsive.of(context);
+//     final maxValue = values.fold<num>(
+//       0,
+//       (max, value) => value > max ? value : max,
+//     );
+//     return _ReportCard(
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           _CardTitle('Tren Pengeluaran'),
+//           SizedBox(height: responsive.space(42)),
+//           SizedBox(
+//             height: responsive.clamp(150, 130, 160),
+//             child: Row(
+//               crossAxisAlignment: CrossAxisAlignment.end,
+//               children: List.generate(values.length, (index) {
+//                 final value = values[index];
+//                 final ratio = maxValue == 0
+//                     ? 0.36
+//                     : (value / maxValue).clamp(0.28, 1.0);
+//                 final active = value == maxValue && maxValue > 0;
+//                 return Expanded(
+//                   child: Padding(
+//                     padding: EdgeInsets.symmetric(
+//                       horizontal: responsive.clamp(5, 3, 6),
+//                     ),
+//                     child: Column(
+//                       mainAxisAlignment: MainAxisAlignment.end,
+//                       children: [
+//                         Expanded(
+//                           child: Align(
+//                             alignment: Alignment.bottomCenter,
+//                             child: FractionallySizedBox(
+//                               heightFactor: ratio.toDouble(),
+//                               child: Container(
+//                                 decoration: BoxDecoration(
+//                                   color: active
+//                                       ? const Color(0xFF8C0010)
+//                                       : const Color(0xFFE4E0DC),
+//                                   borderRadius: BorderRadius.circular(4),
+//                                 ),
+//                               ),
+//                             ),
+//                           ),
+//                         ),
+//                         SizedBox(height: responsive.space(14)),
+//                         Text(
+//                           labels[index],
+//                           style: TextStyle(
+//                             color: const Color(0xFF695D5C),
+//                             fontSize: responsive.font(13),
+//                             fontWeight: FontWeight.w800,
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                   ),
+//                 );
+//               }),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
 class _TrendCard extends StatelessWidget {
   const _TrendCard({required this.values, required this.labels});
 
@@ -571,64 +732,99 @@ class _TrendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final responsive = _ReportsResponsive.of(context);
-    final maxValue = values.fold<num>(
-      0,
-      (max, value) => value > max ? value : max,
-    );
+
+    final maxValue = values.isEmpty
+        ? 1
+        : values.reduce((a, b) => a > b ? a : b).toDouble();
+
+    if (values.every((e) => e == 0)) {
+      return _ReportCard(
+        child: Column(
+          children: [
+            const _CardTitle("Tren Pengeluaran"),
+            SizedBox(height: responsive.space(40)),
+            const Icon(
+              Icons.insert_chart_outlined,
+              size: 55,
+              color: Colors.grey,
+            ),
+            SizedBox(height: responsive.space(12)),
+            const Text(
+              "Belum ada data transaksi",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
     return _ReportCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CardTitle('Tren Pengeluaran'),
-          SizedBox(height: responsive.space(42)),
+          const _CardTitle("Tren Pengeluaran"),
+          SizedBox(height: responsive.space(24)),
           SizedBox(
-            height: responsive.clamp(150, 130, 160),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(values.length, (index) {
-                final value = values[index];
-                final ratio = maxValue == 0
-                    ? 0.36
-                    : (value / maxValue).clamp(0.28, 1.0);
-                final active = value == maxValue && maxValue > 0;
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: responsive.clamp(5, 3, 6),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: FractionallySizedBox(
-                              heightFactor: ratio.toDouble(),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: active
-                                      ? const Color(0xFF8C0010)
-                                      : const Color(0xFFE4E0DC),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: responsive.space(14)),
-                        Text(
-                          labels[index],
-                          style: TextStyle(
-                            color: const Color(0xFF695D5C),
-                            fontSize: responsive.font(13),
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
+            height: 220,
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxValue * 1.2,
+                borderData: FlBorderData(show: false),
+                gridData: FlGridData(
+                  drawVerticalLine: false,
+                  horizontalInterval: maxValue == 0 ? 1 : maxValue / 5,
+                ),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 55,
+                      interval: maxValue == 0 ? 1 : maxValue / 5,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          _formatChartValue(value),
+                          style: const TextStyle(fontSize: 11),
+                        );
+                      },
                     ),
                   ),
-                );
-              }),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        if (value.toInt() >= labels.length) {
+                          return const SizedBox();
+                        }
+
+                        return Text(
+                          labels[value.toInt()],
+                          style: const TextStyle(fontSize: 12),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barGroups: List.generate(
+                  values.length,
+                  (index) => BarChartGroupData(
+                    x: index,
+                    barRods: [
+                      BarChartRodData(
+                        toY: values[index].toDouble(),
+                        width: 18,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -769,9 +965,7 @@ class _BiggestTransactionsCard extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    SmoothTransitionRoute(
-                      page: const ExpenseHistoryPage(),
-                    ),
+                    SmoothTransitionRoute(page: const ExpenseHistoryPage()),
                   );
                 },
                 child: Text(
@@ -789,7 +983,7 @@ class _BiggestTransactionsCard extends StatelessWidget {
           if (transactions.isEmpty)
             _EmptyTransactions(responsive: responsive)
           else
-            for (final transaction in transactions.take(3)) ...[
+            for (final transaction in transactions) ...[
               _TransactionRow(expense: transaction),
               SizedBox(height: responsive.space(26)),
             ],
@@ -948,6 +1142,48 @@ class _CardTitle extends StatelessWidget {
   }
 }
 
+class _SummaryInfoCard extends StatelessWidget {
+  const _SummaryInfoCard({required this.title, required this.value});
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = _ReportsResponsive.of(context);
+
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: responsive.space(14)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F4F3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: responsive.font(13),
+              color: Colors.grey,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: responsive.space(6)),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: responsive.font(17),
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFFA4161D),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyTransactions extends StatelessWidget {
   const _EmptyTransactions({required this.responsive});
 
@@ -966,6 +1202,53 @@ class _EmptyTransactions extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
+    );
+  }
+}
+
+class _EmptyReportState extends StatelessWidget {
+  const _EmptyReportState({required this.onRefresh});
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = _ReportsResponsive.of(context);
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: responsive.space(120)),
+        const Icon(
+          Icons.insert_chart_outlined,
+          size: 80,
+          color: Color(0xFFC8152B),
+        ),
+        SizedBox(height: responsive.space(20)),
+        Center(
+          child: Text(
+            "Belum ada transaksi",
+            style: TextStyle(
+              fontSize: responsive.font(22),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        SizedBox(height: responsive.space(10)),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              "Tambahkan pengeluaran pertamamu agar laporan dapat ditampilkan.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: responsive.font(15),
+                color: Colors.grey,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1029,27 +1312,27 @@ class SmoothTransitionRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
 
   SmoothTransitionRoute({required this.page})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const curve = Curves.easeInOutCubic;
-            final CurvedAnimation curvedAnimation = CurvedAnimation(
-              parent: animation,
-              curve: curve,
-            );
-            return FadeTransition(
-              opacity: curvedAnimation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0.0, 0.02),
-                  end: Offset.zero,
-                ).animate(curvedAnimation),
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 250),
-        );
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const curve = Curves.easeInOutCubic;
+          final CurvedAnimation curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: curve,
+          );
+          return FadeTransition(
+            opacity: curvedAnimation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.02),
+                end: Offset.zero,
+              ).animate(curvedAnimation),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 250),
+      );
 }
 
 class _ReportsBottomNav extends StatelessWidget {
@@ -1077,9 +1360,9 @@ class _ReportsBottomNav extends StatelessWidget {
           _BottomNavItem(
             icon: Icons.home_rounded,
             label: 'Beranda',
-            onTap: () => Navigator.of(context).pushReplacement(
-              SmoothTransitionRoute(page: const HomePage()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).pushReplacement(SmoothTransitionRoute(page: const HomePage())),
           ),
           _BottomNavItem(
             icon: Icons.groups_rounded,
@@ -1102,11 +1385,7 @@ class _ReportsBottomNav extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.add_rounded,
-              color: Colors.white,
-              size: 34,
-            ),
+            child: const Icon(Icons.add_rounded, color: Colors.white, size: 34),
           ),
           const _BottomNavItem(
             icon: Icons.insert_chart_rounded,
@@ -1221,4 +1500,16 @@ String _dateLabel(DateTime date) {
     'Des',
   ];
   return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]} ${date.year}';
+}
+
+String _formatChartValue(double value) {
+  if (value >= 1000000) {
+    return '${(value / 1000000).toStringAsFixed(1)}M';
+  }
+
+  if (value >= 1000) {
+    return '${(value / 1000).round()}K';
+  }
+
+  return value.toStringAsFixed(0);
 }

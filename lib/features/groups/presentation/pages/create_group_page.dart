@@ -55,11 +55,6 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       const _CategoryOption(label: 'Home', icon: Icons.home_outlined),
       const _CategoryOption(label: 'Travel', icon: Icons.flight),
       const _CategoryOption(label: 'Food', icon: Icons.restaurant),
-      const _CategoryOption(
-        label: 'Custom',
-        icon: Icons.add,
-        isCustomAction: true,
-      ),
     ];
     _loadFriends();
   }
@@ -174,6 +169,19 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   Future<void> _searchMembers(String query) async {
     final int version = ++_memberSearchVersion;
     final String trimmedQuery = query.trim();
+
+    if (trimmedQuery.isEmpty) {
+      final Set<String> selectedIds = _selectedMembers
+          .map((GroupUserModel user) => user.id)
+          .toSet();
+      setState(() {
+        _memberSuggestions = _availableFriends
+            .where((GroupUserModel user) => !selectedIds.contains(user.id))
+            .toList();
+        _isSearchingMembers = false;
+      });
+      return;
+    }
 
     if (trimmedQuery.length < 2) {
       setState(() {
@@ -485,7 +493,9 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                     hasFriends: _availableFriends.isNotEmpty,
                     isLoading: _isSearchingMembers,
                     isLoadingFriends: _isLoadingFriends,
-                    hasQuery: _searchController.text.trim().length >= 2,
+                    hasQuery:
+                        _searchController.text.trim().isEmpty ||
+                        _searchController.text.trim().length >= 2,
                     errorMessage: _friendsLoadError,
                     primaryRed: _primaryRed,
                     onAdd: _addSelectedMember,
@@ -894,12 +904,8 @@ class _MemberSuggestionList extends StatelessWidget {
         onPressed: onRetry,
       );
     } else if (!hasFriends) {
-      child = _MemberSearchActionMessage(
+      child = const _MemberSearchMessage(
         message: 'Belum ada teman di daftar kamu.',
-        buttonLabel: 'Tambah Teman',
-        icon: Icons.person_add_alt_1_rounded,
-        primaryRed: primaryRed,
-        onPressed: onAddFriend,
       );
     } else if (isLoading) {
       child = const Padding(
@@ -911,12 +917,8 @@ class _MemberSuggestionList extends StatelessWidget {
         message: 'Ketik minimal 2 karakter untuk mencari teman.',
       );
     } else if (members.isEmpty) {
-      child = _MemberSearchActionMessage(
+      child = const _MemberSearchMessage(
         message: 'Tidak ada teman yang cocok.',
-        buttonLabel: 'Tambah Teman',
-        icon: Icons.person_add_alt_1_rounded,
-        primaryRed: primaryRed,
-        onPressed: onAddFriend,
       );
     } else {
       child = Column(
@@ -1087,14 +1089,19 @@ class MemberSuggestionTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+
           SizedBox(
+            width: 90,
             height: 30,
-            child: FilledButton(
+            child: ElevatedButton(
               onPressed: () => onAdd(member),
-              style: FilledButton.styleFrom(
+              style: ElevatedButton.styleFrom(
                 backgroundColor: primaryRed,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 17),
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                fixedSize: const Size(90, 30),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),

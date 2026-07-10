@@ -12,7 +12,8 @@ class SettlementTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tabs = ['Pembagian', 'Presentase', 'Kustom'];
+    final tabs = ['Pembagian', 'Presentase',];
+    // Kustom
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFE5E5E5),

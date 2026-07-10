@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../authentication/auth_service.dart';
@@ -33,12 +34,29 @@ class ExpenseRemoteDataSource {
     required String splitMethod,
     required double currentUserSplitAmount,
     required double? currentUserPercentage,
+    required List<String> participantIds,
   }) async {
+    debugPrint("========== AUTH ==========");
+    debugPrint(
+      "CurrentUser : ${Supabase.instance.client.auth.currentUser?.id}",
+    );
+    debugPrint(
+      "Session     : ${Supabase.instance.client.auth.currentSession != null}",
+    );
+    debugPrint(
+      "AccessToken : ${Supabase.instance.client.auth.currentSession?.accessToken.substring(0, 20)}...",
+    );
     final String currentUserId = await _requireCurrentUserId();
+    debugPrint("CurrentUserId = $currentUserId");
+    debugPrint("AUTH USER = ${Supabase.instance.client.auth.currentUser?.id}");
+
+    debugPrint(
+      "SESSION = ${Supabase.instance.client.auth.currentSession != null}",
+    );
     if (!_isUuid(groupId)) {
       throw const FormatException('Group ID tidak valid untuk pengeluaran.');
     }
-
+    debugPrint("STEP 1 - INSERT EXPENSE");
     final Map<String, dynamic> expenseRow = await _client
         .from('expenses')
         .insert(<String, dynamic>{
@@ -66,34 +84,69 @@ class ExpenseRemoteDataSource {
 
     final String expenseId = expenseRow['id'] as String;
 
-    if (items.isNotEmpty) {
-      await _client.from('expense_items').insert(<Map<String, dynamic>>[
+    final test = await _client.from('expenses').select().eq('id', expenseId);
+
+    debugPrint("TEST EXPENSE = $test");
+    debugPrint("STEP 2 - EXPENSE ID : $expenseId");
+    debugPrint("STEP 3 - INSERT EXPENSE ITEMS");
+    debugPrint("ExpenseId = $expenseId");
+
+    for (final item in items) {
+      debugPrint(
+        "Item => "
+        "name=${item.name}, "
+        "qty=${item.quantity}, "
+        "price=${item.unitPrice}",
+      );
+    }
+    try {
+      final insertedItems = await _client.from('expense_items').insert([
         for (int index = 0; index < items.length; index++)
-          <String, dynamic>{
+          {
             'expense_id': expenseId,
             'name': items[index].name,
             'quantity': items[index].quantity,
             'unit_price': items[index].unitPrice,
             'sort_order': index,
           },
-      ]);
+      ]).select();
+
+      debugPrint("INSERTED ITEMS = $insertedItems");
+
+      final expenseItemId = insertedItems.first['id'];
+
+      debugPrint("STEP 4 - EXPENSE ITEM ID = $expenseItemId");
+
+      for (final participantId in participantIds) {
+        if (participantId == currentUserId) continue;
+
+        debugPrint("INSERT SPLIT -> $participantId");
+
+        await _client.from('split_bill').insert({
+          'expense_id': expenseId,
+          'expense_item_id': expenseItemId,
+          'user_id': participantId,
+          'exact_amount': currentUserSplitAmount,
+          'share_percentage': currentUserPercentage,
+          'currency': 'IDR',
+          'category': 'General',
+          'is_paid': false,
+        });
+      }
+    } on PostgrestException catch (e, st) {
+      debugPrint("========== POSTGREST ERROR ==========");
+      debugPrint("MESSAGE : ${e.message}");
+      debugPrint("CODE    : ${e.code}");
+      debugPrint("DETAILS : ${e.details}");
+      debugPrint("HINT    : ${e.hint}");
+      debugPrint(st.toString());
+      rethrow;
+    } catch (e, st) {
+      debugPrint("========== OTHER ERROR ==========");
+      debugPrint(e.toString());
+      debugPrint(st.toString());
+      rethrow;
     }
-
-    final double shareRatio = totalAmount <= 0
-        ? 0
-        : currentUserSplitAmount / totalAmount;
-
-    await _client.from('expense_splits').insert(<String, dynamic>{
-      'expense_id': expenseId,
-      'user_id': currentUserId,
-      'split_method': splitMethod,
-      'base_amount': subtotal * shareRatio,
-      'tax_share': taxAmount * shareRatio,
-      'service_charge_share': serviceChargeAmount * shareRatio,
-      'discount_share': discountAmount * shareRatio,
-      'total_share': currentUserSplitAmount,
-      'percentage': currentUserPercentage,
-    });
 
     return expenseId;
   }

@@ -149,11 +149,7 @@ class _PersonPaymentCheckoutPageState extends State<PersonPaymentCheckoutPage> {
         ..showSnackBar(
           const SnackBar(content: Text('Pembayaran dikonfirmasi')),
         );
-
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).maybePop(true);
-      });
+      Navigator.of(context).maybePop(true);
     }
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'authentication/auth_service.dart';
@@ -35,39 +36,54 @@ class FriendRequestService {
 
   static Future<List<FriendProfile>> recommendations() async {
     final requesterId = await _currentProfileIdOrNull();
+
+    if (requesterId == null) {
+      return const [];
+    }
+
     try {
       final rows = await _client
           .from('profiles')
           .select('id,user_name,email,avatar_url')
+          .neq('id', requesterId)
           .limit(12);
 
-      final sentIds = requesterId == null
-          ? <String>{}
-          : await _sentRequestReceiverIds(requesterId);
+      final sentIds = await _pendingPeerIds(requesterId);
+
+      // Ambil daftar teman yang sudah diterima
+      final friends = await FriendRequestService.friends();
+
+      final friendIds = friends.map((e) => e.id).toSet();
 
       return rows
           .map<FriendProfile>((row) => _profileFromRow(row, sentIds: sentIds))
+          // jangan tampilkan profile kosong
           .where((profile) => profile.id.isNotEmpty)
-          .where((profile) => requesterId == null || profile.id != requesterId)
+          // jangan tampilkan diri sendiri
+          .where((profile) => profile.id != requesterId)
+          // jangan tampilkan yang sudah jadi teman
+          .where((profile) => !friendIds.contains(profile.id))
           .toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint("Recommendations Error : $e");
       return const [];
     }
   }
 
   static Future<FriendProfile?> findFriend(String query) async {
     final cleaned = query.trim();
-    if (cleaned.isEmpty) return null;
 
-    final sentIds = await _currentProfileIdOrNull().then((id) {
-      if (id == null) return Future.value(<String>{});
-      return _sentRequestReceiverIds(id);
-    });
+    if (cleaned.isEmpty) {
+      return null;
+    }
 
-    final byId = await _findById(cleaned, sentIds);
-    if (byId != null) return byId;
+    final result = await searchFriends(cleaned);
 
-    return _findByUsername(cleaned, sentIds);
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return result.first;
   }
 
   static Future<void> sendRequestToProfile(String receiverId) async {
@@ -81,11 +97,33 @@ class FriendRequestService {
       );
     }
 
+    debugPrint("REQUESTER : $requesterId");
+    debugPrint("RECEIVER  : $receiverId");
+
+    final existing = await _client
+        .from('friend_requests')
+        .select('id,status')
+        .or(
+          'and(requester_id.eq.$requesterId,addressee_id.eq.$receiverId),'
+          'and(requester_id.eq.$receiverId,addressee_id.eq.$requesterId)',
+        )
+        .maybeSingle();
+
+    if (existing != null) {
+      final status = (existing['status'] ?? '').toString();
+      if (_acceptedStatuses.contains(status)) {
+        throw const FriendRequestException('User ini sudah menjadi teman.');
+      }
+      throw const FriendRequestException('Permintaan pertemanan sudah ada.');
+    }
+
     await _client.from('friend_requests').insert({
       'requester_id': requesterId,
       'addressee_id': receiverId,
       'status': 'pending',
     });
+
+    debugPrint("REQUEST BERHASIL");
   }
 
   static Future<FriendProfile> sendRequest(String query) async {
@@ -99,22 +137,52 @@ class FriendRequestService {
 
   static Future<List<FriendProfile>> friends() async {
     final currentId = await _currentProfileId();
+
+    debugPrint("=========================");
+    debugPrint("CURRENT USER : $currentId");
+
     try {
       final friendRows = await _client
           .from('friends')
-          .select('friend_id')
+          .select('*')
           .eq('user_id', currentId);
 
-      final friendIds = friendRows
-          .map<String>((row) => (row['friend_id'] ?? '').toString())
-          .where((id) => id.isNotEmpty)
-          .toSet();
+      debugPrint("FRIEND ROWS = $friendRows");
 
-      if (friendIds.isEmpty) return const [];
+      final ids = <String>{};
 
-      return _profilesByIds(friendIds);
-    } catch (_) {
-      return _friendsFromAcceptedRequests(currentId);
+      for (final row in friendRows) {
+        final id = (row['friend_id'] ?? '').toString();
+
+        if (id.isNotEmpty) {
+          ids.add(id);
+        }
+      }
+
+      debugPrint("FRIEND IDS = $ids");
+
+      if (ids.isEmpty) {
+        return const [];
+      }
+
+      final profileRows = await _client
+          .from('profiles')
+          .select('id,user_name,email,avatar_url')
+          .inFilter('id', ids.toList());
+
+      debugPrint("PROFILE ROWS = $profileRows");
+
+      final profiles = profileRows
+          .map<FriendProfile>((row) => _profileFromRow(row, sentIds: const {}))
+          .toList();
+
+      debugPrint("PROFILE COUNT = ${profiles.length}");
+
+      return profiles;
+    } catch (e, s) {
+      debugPrint(e.toString());
+      debugPrint(s.toString());
+      return const [];
     }
   }
 
@@ -128,6 +196,7 @@ class FriendRequestService {
         'Data permintaan pertemanan tidak lengkap.',
       );
     }
+
     if (requesterId == addresseeId) {
       throw const FriendRequestException(
         'Tidak bisa berteman dengan diri sendiri.',
@@ -147,10 +216,81 @@ class FriendRequestService {
           'friend_request_id': requestId,
         },
       ], onConflict: 'user_id,friend_id');
+
       return true;
     } catch (error) {
-      if (_isMissingFriendsTable(error)) return false;
+      if (_isMissingFriendsTable(error)) {
+        return false;
+      }
+
       throw FriendRequestException('Pertemanan belum bisa disimpan: $error');
+    }
+  }
+
+  static Future<void> acceptRequest({
+    required String requestId,
+    required String requesterId,
+    required String addresseeId,
+  }) async {
+    debugPrint("================================");
+    debugPrint("ACCEPT REQUEST DIPANGGIL");
+    debugPrint("Request ID : $requestId");
+    debugPrint("Requester  : $requesterId");
+    debugPrint("Addressee  : $addresseeId");
+    debugPrint("================================");
+
+    final updated = await _updateFriendRequestStatus(
+      requestId: requestId,
+      requesterId: requesterId,
+      addresseeId: addresseeId,
+      status: 'accepted',
+    );
+
+    debugPrint("UPDATED ROWS : $updated");
+
+    if (updated.isEmpty) {
+      throw const FriendRequestException(
+        'Friend request tidak berhasil diupdate.',
+      );
+    }
+
+    debugPrint("STATUS BERHASIL DIUPDATE");
+
+    final cek = await _client
+        .from('friend_requests')
+        .select('status')
+        .eq('id', requestId)
+        .single();
+
+    debugPrint("STATUS DATABASE : ${cek['status']}");
+
+    final saved = await saveAcceptedFriendship(
+      requesterId: requesterId,
+      addresseeId: addresseeId,
+      requestId: requestId,
+    );
+
+    debugPrint("SAVE FRIEND RESULT : $saved");
+
+    debugPrint("FRIEND BERHASIL DISIMPAN");
+  }
+
+  static Future<void> rejectRequest(String requestId) async {
+    final updatedRows = await _client
+        .from('friend_requests')
+        .update({
+          'status': 'rejected',
+          'responded_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', requestId)
+        .select();
+
+    debugPrint("========== UPDATE RESULT ==========");
+    debugPrint(updatedRows.toString());
+    debugPrint("===================================");
+
+    if (updatedRows.isEmpty) {
+      throw FriendRequestException('Friend request tidak berhasil diupdate.');
     }
   }
 
@@ -160,12 +300,13 @@ class FriendRequestService {
     try {
       final requestRows = await _client
           .from('friend_requests')
-          .select('requester_id,addressee_id,status')
+          .select('id,requester_id,addressee_id,status')
           .or('requester_id.eq.$currentId,addressee_id.eq.$currentId')
-          .eq('status', 'accepted');
+          .inFilter('status', _acceptedStatuses.toList());
 
       final friendIds = <String>{};
       for (final row in requestRows) {
+        final requestId = (row['id'] ?? '').toString();
         final requesterId = (row['requester_id'] ?? '').toString();
         final addresseeId = (row['addressee_id'] ?? '').toString();
         if (requesterId == currentId && addresseeId.isNotEmpty) {
@@ -173,6 +314,18 @@ class FriendRequestService {
         }
         if (addresseeId == currentId && requesterId.isNotEmpty) {
           friendIds.add(requesterId);
+        }
+
+        if (requesterId.isNotEmpty && addresseeId.isNotEmpty) {
+          try {
+            await saveAcceptedFriendship(
+              requesterId: requesterId,
+              addresseeId: addresseeId,
+              requestId: requestId.isEmpty ? null : requestId,
+            );
+          } catch (error) {
+            debugPrint('Backfill friends gagal: $error');
+          }
         }
       }
 
@@ -242,50 +395,63 @@ class FriendRequestService {
 
   static Future<String?> _currentProfileIdOrNull() async {
     final profile = await AuthService.currentSession();
-    if (profile != null) return profile.id;
-
-    try {
-      final row = await _client.from('profiles').select('id').limit(1).single();
-      return (row['id'] ?? '').toString();
-    } catch (_) {
+    if (profile == null) {
       return null;
     }
-  }
 
-  static Future<FriendProfile?> _findById(
-    String query,
-    Set<String> sentIds,
-  ) async {
-    if (!_looksLikeUuid(query)) return null;
+    final sessionId = profile.id.trim();
+    if (_looksLikeUuid(sessionId)) {
+      return sessionId;
+    }
+
+    final email = profile.email.trim().toLowerCase();
+    if (email.isEmpty) {
+      return null;
+    }
+
     try {
       final row = await _client
           .from('profiles')
-          .select('id,user_name,email,avatar_url')
-          .eq('id', query)
+          .select('id')
+          .eq('email', email)
           .maybeSingle();
-      if (row == null) return null;
-      return _profileFromRow(row, sentIds: sentIds);
-    } catch (_) {
+      final resolvedId = (row?['id'] ?? '').toString();
+      return resolvedId.isEmpty ? null : resolvedId;
+    } catch (error) {
+      debugPrint('Failed to resolve current profile id: $error');
       return null;
     }
   }
 
-  static Future<FriendProfile?> _findByUsername(
-    String query,
-    Set<String> sentIds,
-  ) async {
-    final username = query.startsWith('@') ? query.substring(1) : query;
-    try {
-      final rows = await _client
-          .from('profiles')
-          .select('id,user_name,email,avatar_url')
-          .ilike('user_name', username)
-          .limit(1);
-      if (rows.isEmpty) return null;
-      return _profileFromRow(rows.first, sentIds: sentIds);
-    } catch (_) {
-      return null;
-    }
+  static Future<List<FriendProfile>> searchFriends(String query) async {
+    final currentId = await _currentProfileId();
+
+    final sentIds = await _pendingPeerIds(currentId);
+
+    final friends = await FriendRequestService.friends();
+
+    final friendIds = friends.map((e) => e.id).toSet();
+
+    final rows = await _client
+        .from('profiles')
+        .select('id,user_name,email,avatar_url')
+        .or('user_name.ilike.%$query%,email.ilike.%$query%')
+        .order('user_name');
+
+    return rows
+        .map<FriendProfile>(
+          (e) => FriendProfile(
+            id: e['id'].toString(),
+            name: e['user_name'] ?? '',
+            handle: '@${e['user_name']}',
+            avatarUrl: e['avatar_url'] ?? '',
+            email: e['email'] ?? '',
+            sent: sentIds.contains(e['id']),
+          ),
+        )
+        .where((e) => e.id != currentId)
+        .where((e) => !friendIds.contains(e.id))
+        .toList();
   }
 
   static FriendProfile _profileFromRow(
@@ -304,18 +470,60 @@ class FriendRequestService {
     );
   }
 
-  static Future<Set<String>> _sentRequestReceiverIds(String requesterId) async {
+  static Future<List<Map<String, dynamic>>> _updateFriendRequestStatus({
+    required String requestId,
+    required String requesterId,
+    required String addresseeId,
+    required String status,
+  }) async {
     try {
       final rows = await _client
           .from('friend_requests')
-          .select('addressee_id')
-          .eq('requester_id', requesterId);
-      return rows
-          .map<String>((row) => (row['addressee_id'] ?? '').toString())
-          .where((id) => id.isNotEmpty)
-          .toSet();
+          .update({
+            'status': status,
+            'responded_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', requestId)
+          .select();
+
+      debugPrint("UPDATE RESULT = $rows");
+
+      return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (e, s) {
+      debugPrint("======================");
+      debugPrint("UPDATE ERROR");
+      debugPrint(e.toString());
+      debugPrint(s.toString());
+      debugPrint("======================");
+
+      rethrow;
+    }
+  }
+
+  static const Set<String> _acceptedStatuses = <String>{'accepted'};
+
+  static Future<Set<String>> _pendingPeerIds(String requesterId) async {
+    try {
+      final rows = await _client
+          .from('friend_requests')
+          .select('requester_id,addressee_id')
+          .or('requester_id.eq.$requesterId,addressee_id.eq.$requesterId')
+          .eq('status', 'pending');
+
+      final ids = <String>{};
+      for (final row in rows) {
+        final requester = (row['requester_id'] ?? '').toString();
+        final addressee = (row['addressee_id'] ?? '').toString();
+        if (requester == requesterId && addressee.isNotEmpty) {
+          ids.add(addressee);
+        }
+        if (addressee == requesterId && requester.isNotEmpty) {
+          ids.add(requester);
+        }
+      }
+      return ids;
     } catch (_) {
-      return <String>{};
+      return {};
     }
   }
 
