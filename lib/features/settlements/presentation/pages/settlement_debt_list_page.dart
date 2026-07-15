@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../authentication/auth_service.dart';
 
 class SettlementDebtListPage extends StatefulWidget {
   const SettlementDebtListPage({super.key, this.userId = ''});
@@ -22,12 +23,23 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
   final Set<String> _settlingIds = <String>{};
   bool _isLoading = true;
   bool _canMarkAsPaid = true;
+  String _currentUserId = '';
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadDebts();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    final session = await AuthService.currentSession();
+
+    _currentUserId = session?.id ?? '';
+
+    debugPrint("LOGIN USER = $_currentUserId");
+
+    await _loadDebts();
   }
 
   Future<void> _loadDebts() async {
@@ -74,6 +86,15 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
             ),
         onlyUnpaid: true,
       );
+
+      debugPrint("==============================");
+      debugPrint("ROWS = ${rows.length}");
+      for (final r in rows) {
+        debugPrint("ROW -> ${r['user_id']}  amount=${r['exact_amount']}");
+      }
+      debugPrint(rows.toString());
+      debugPrint("==============================");
+
       _canMarkAsPaid = true;
       return rows;
     } catch (error) {
@@ -113,15 +134,18 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
       'exact_amount',
       0,
     );
+
     if (onlyUnpaid) {
       filtered = filtered.eq('is_paid', false);
     }
 
-    if (_isUuid(widget.userId)) {
-      return filtered.eq('user_id', widget.userId);
+    debugPrint("SESSION USER = $_currentUserId");
+
+    if (_isUuid(_currentUserId)) {
+      return filtered.eq('user_id', _currentUserId);
     }
 
-    return filtered;
+    return filtered.eq('user_id', '__INVALID__');
   }
 
   _DebtItem? _debtFromRow(Map<String, dynamic> row) {
@@ -160,37 +184,64 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
 
   Future<void> _settleDebt(_DebtItem debt) async {
     if (_settlingIds.contains(debt.id)) return;
-    if (!_canMarkAsPaid) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Jalankan migration split_bill terbaru agar tombol Lunasi aktif.',
-            ),
-          ),
-        );
-      return;
-    }
 
     setState(() => _settlingIds.add(debt.id));
 
     try {
-      final String now = DateTime.now().toUtc().toIso8601String();
-      await Supabase.instance.client
+      debugPrint(
+        "SUPABASE CURRENT USER = ${Supabase.instance.client.auth.currentUser?.id}",
+      );
+
+      debugPrint(
+        "SUPABASE SESSION = ${Supabase.instance.client.auth.currentSession != null}",
+      );
+
+      debugPrint(
+        "SUPABASE TOKEN = ${Supabase.instance.client.auth.currentSession?.accessToken != null}",
+      );
+      final check = await Supabase.instance.client
           .from('split_bill')
-          .update(<String, dynamic>{
-            'is_paid': true,
-            'paid_at': now,
-            'updated_at': now,
-          })
+          .select()
           .eq('id', debt.id);
 
+      debugPrint("CHECK BEFORE = $check");
+
+      // TAMBAHKAN INI
+      debugPrint(
+        "SUPABASE CURRENT USER = ${Supabase.instance.client.auth.currentUser?.id}",
+      );
+
+      debugPrint(
+        "SUPABASE SESSION = ${Supabase.instance.client.auth.currentSession != null}",
+      );
+
+      debugPrint(
+        "SUPABASE ACCESS TOKEN = ${Supabase.instance.client.auth.currentSession?.accessToken}",
+      );
+
+      final deleted = await Supabase.instance.client
+          .from('split_bill')
+          .delete()
+          .eq('id', debt.id)
+          .select();
+
+      debugPrint("DELETE = $deleted");
+
+      final after = await Supabase.instance.client
+          .from('split_bill')
+          .select()
+          .eq('id', debt.id);
+
+      debugPrint("CHECK AFTER = $after");
+
+      await _loadDebts();
+
       if (!mounted) return;
+
       setState(() {
-        _debts.removeWhere((_DebtItem item) => item.id == debt.id);
         _settlingIds.remove(debt.id);
       });
+
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -198,7 +249,11 @@ class _SettlementDebtListPageState extends State<SettlementDebtListPage> {
         );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _settlingIds.remove(debt.id));
+
+      setState(() {
+        _settlingIds.remove(debt.id);
+      });
+
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(_readErrorMessage(error))));

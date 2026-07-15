@@ -122,16 +122,19 @@ class _HomePageState extends State<HomePage> {
     List<String> groupIds,
     String currentUserId,
   ) async {
-    final List<dynamic> rows = await _client
-        .from('expenses')
-        .select('total_amount')
-        .inFilter('group_id', groupIds)
-        .eq('payer_id', currentUserId);
+    final rows = await _client
+        .from('split_bill')
+        .select('exact_amount,is_paid,expenses!inner(payer_id,group_id)')
+        .eq('expenses.payer_id', currentUserId)
+        .eq('is_paid', false);
 
-    return rows.fold<double>(0, (double total, dynamic row) {
-      final Map<String, dynamic> data = Map<String, dynamic>.from(row as Map);
-      return total + _asDouble(data['total_amount']);
-    });
+    double total = 0;
+
+    for (final row in rows) {
+      total += _asDouble(row['exact_amount']);
+    }
+
+    return total;
   }
 
   Future<List<_HomeActivityData>> _loadRecentActivities(
@@ -1557,27 +1560,27 @@ class SmoothTransitionRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
 
   SmoothTransitionRoute({required this.page})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const curve = Curves.easeInOutCubic;
-            final CurvedAnimation curvedAnimation = CurvedAnimation(
-              parent: animation,
-              curve: curve,
-            );
-            return FadeTransition(
-              opacity: curvedAnimation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0.0, 0.02),
-                  end: Offset.zero,
-                ).animate(curvedAnimation),
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 250),
-        );
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const curve = Curves.easeInOutCubic;
+          final CurvedAnimation curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: curve,
+          );
+          return FadeTransition(
+            opacity: curvedAnimation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.02),
+                end: Offset.zero,
+              ).animate(curvedAnimation),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 250),
+      );
 }
 
 class _BottomNav extends StatelessWidget {
@@ -1617,9 +1620,9 @@ class _BottomNav extends StatelessWidget {
           _NavItem(
             icon: Icons.bar_chart,
             label: 'Laporan',
-            onTap: () => Navigator.of(context).pushReplacement(
-              SmoothTransitionRoute(page: const ReportsPage()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).pushReplacement(SmoothTransitionRoute(page: const ReportsPage())),
           ),
           _NavItem(
             icon: Icons.person_outline,
