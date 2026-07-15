@@ -9,6 +9,7 @@ import 'notification_settings_page.dart';
 import '../home/home_page.dart';
 import '../../features/groups/presentation/pages/group_home_page.dart';
 import '../../reports/reports_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -348,6 +349,13 @@ class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.onLogout});
 
   final VoidCallback onLogout;
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw Exception('Tidak dapat membuka $url');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -373,17 +381,19 @@ class _SettingsCard extends StatelessWidget {
             destination: AccountSettingsPage(),
           ),
           const Divider(height: 1, color: Color(0xFFEDEDED)),
-          const _SettingsTile(
-            icon: Icons.notifications_none_rounded,
-            title: 'Pengaturan Notifikasi',
-            subtitle: 'Email, push, SMS',
-            destination: NotificationSettingsPage(),
+          _SettingsTile(
+            icon: Icons.bug_report_outlined,
+            title: 'Lapor Bug',
+            subtitle: 'Laporkan bug atau kendala aplikasi',
+            onTap: () => _openUrl('https://forms.gle/A75JVcMYuoTax1RX6'),
           ),
+
           const Divider(height: 1, color: Color(0xFFEDEDED)),
-          const _SettingsTile(
-            icon: Icons.credit_card_rounded,
-            title: 'Metode Pembayaran',
-            subtitle: 'Kartu, Bank Akun',
+          _SettingsTile(
+            icon: Icons.star_rate_rounded,
+            title: 'Rating Aplikasi',
+            subtitle: 'Beri penilaian untuk SplitSync',
+            onTap: () => _openUrl('https://forms.gle/ijSX5MYqz2P7nPxV9'),
           ),
           const Divider(height: 1, color: Color(0xFFEDEDED)),
           _SettingsTile(
@@ -498,27 +508,27 @@ class SmoothTransitionRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
 
   SmoothTransitionRoute({required this.page})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const curve = Curves.easeInOutCubic;
-            final CurvedAnimation curvedAnimation = CurvedAnimation(
-              parent: animation,
-              curve: curve,
-            );
-            return FadeTransition(
-              opacity: curvedAnimation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0.0, 0.02),
-                  end: Offset.zero,
-                ).animate(curvedAnimation),
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 250),
-        );
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const curve = Curves.easeInOutCubic;
+          final CurvedAnimation curvedAnimation = CurvedAnimation(
+            parent: animation,
+            curve: curve,
+          );
+          return FadeTransition(
+            opacity: curvedAnimation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.02),
+                end: Offset.zero,
+              ).animate(curvedAnimation),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 250),
+      );
 }
 
 class _ProfileBottomNav extends StatelessWidget {
@@ -548,9 +558,9 @@ class _ProfileBottomNav extends StatelessWidget {
             _BottomItem(
               icon: Icons.home_rounded,
               label: 'Home',
-              onTap: () => Navigator.of(context).pushReplacement(
-                SmoothTransitionRoute(page: const HomePage()),
-              ),
+              onTap: () => Navigator.of(
+                context,
+              ).pushReplacement(SmoothTransitionRoute(page: const HomePage())),
             ),
             _BottomItem(
               icon: Icons.groups_2_outlined,

@@ -47,6 +47,25 @@ class ExpenseRemoteDataSource {
       "AccessToken : ${Supabase.instance.client.auth.currentSession?.accessToken.substring(0, 20)}...",
     );
     final String currentUserId = await _requireCurrentUserId();
+    debugPrint("========================");
+    debugPrint("USER ID = $currentUserId");
+    debugPrint("IS UUID = ${_isUuid(currentUserId)}");
+    debugPrint("GROUP ID = $groupId");
+    debugPrint("GROUP UUID = ${_isUuid(groupId)}");
+
+    final rows = await _client
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', groupId);
+
+    debugPrint("GROUP MEMBERS = $rows");
+
+    debugPrint("PARTICIPANT IDS = $participantIds");
+    debugPrint("========================");
+
+    debugPrint("CurrentUserId = $currentUserId");
+    debugPrint("CURRENT USER = $currentUserId");
+    debugPrint("PARTICIPANTS = $participantIds");
     debugPrint("CurrentUserId = $currentUserId");
     debugPrint("AUTH USER = ${Supabase.instance.client.auth.currentUser?.id}");
 
@@ -117,21 +136,45 @@ class ExpenseRemoteDataSource {
 
       debugPrint("STEP 4 - EXPENSE ITEM ID = $expenseItemId");
 
-      for (final participantId in participantIds) {
-        if (participantId == currentUserId) continue;
+      final members = participantIds.where((e) => e != currentUserId).toList();
 
-        debugPrint("INSERT SPLIT -> $participantId");
+      debugPrint("==================================");
+      debugPrint("CURRENT USER = $currentUserId");
+      debugPrint("PARTICIPANTS = $participantIds");
+      debugPrint("MEMBERS = $members");
+      debugPrint("COUNT = ${members.length}");
+      debugPrint("==================================");
+
+      final splitAmount = totalAmount / members.length;
+      debugPrint("MEMBERS AFTER FILTER = $members");
+      debugPrint("TOTAL = $totalAmount");
+      debugPrint("SPLIT = $splitAmount");
+      for (int i = 0; i < members.length; i++) {
+        final userId = members[i];
+
+        double amount = splitAmount;
+
+        // supaya total pas 200000
+        if (i == members.length - 1) {
+          final used = splitAmount * (members.length - 1);
+          amount = totalAmount - used;
+        }
+
+        debugPrint("INSERT SPLIT => $userId");
+        debugPrint("AMOUNT = $amount");
 
         await _client.from('split_bill').insert({
           'expense_id': expenseId,
           'expense_item_id': expenseItemId,
-          'user_id': participantId,
-          'exact_amount': currentUserSplitAmount,
-          'share_percentage': currentUserPercentage,
+          'user_id': userId,
+          'exact_amount': amount,
+          'share_percentage': null,
           'currency': 'IDR',
           'category': 'General',
           'is_paid': false,
         });
+
+        debugPrint("SUCCESS INSERT SPLIT");
       }
     } on PostgrestException catch (e, st) {
       debugPrint("========== POSTGREST ERROR ==========");

@@ -78,7 +78,11 @@ class SuccessPage extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/home',
+                          (route) => false,
+                        );
                       },
                       child: const Text(
                         'Selesai',
@@ -129,7 +133,7 @@ class _SuccessIndicator extends StatelessWidget {
         ),
         child: Container(
           width: 54,
-              height: 48,
+          height: 48,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,

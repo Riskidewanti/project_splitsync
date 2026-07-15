@@ -53,18 +53,40 @@ class _ConfirmExpensePageState extends State<ConfirmExpensePage> {
   bool _isSaving = false;
 
   Future<void> _confirmExpense() async {
-    if (_isSaving) {
-      return;
-    }
+    if (_isSaving) return;
 
     setState(() {
       _isSaving = true;
     });
 
     try {
+      await _expenseRemoteDataSource.createExpense(
+        groupId: widget.groupId,
+        merchantName: widget.merchantName,
+        expenseDate: widget.expenseDate ?? DateTime.now(),
+        items: widget.items
+            .map(
+              (e) => ExpenseItemDraft(
+                name: e.name,
+                quantity: e.quantity.toInt(),
+                unitPrice: e.price,
+              ),
+            )
+            .toList(),
+        subtotal: widget.subtotal,
+        taxAmount: widget.tax,
+        serviceChargeAmount: widget.serviceFee,
+        discountAmount: 0,
+        totalAmount: widget.totalAmount,
+        splitMethod: widget.splitMethod,
+        currentUserSplitAmount: widget.currentUserSplitAmount,
+        currentUserPercentage: widget.currentUserPercentage,
+        participantIds: widget.participantIds,
+      );
+
       if (!mounted) return;
 
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => SuccessPage(
@@ -73,30 +95,14 @@ class _ConfirmExpensePageState extends State<ConfirmExpensePage> {
           ),
         ),
       );
+    } catch (e) {
+      debugPrint(e.toString());
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
-      Navigator.push(
+      ScaffoldMessenger.of(
         context,
-        MaterialPageRoute<void>(
-          builder: (BuildContext context) {
-            return SuccessPage(
-              totalAmount: widget.totalAmount,
-              participantCount: widget.participantCount,
-            );
-          },
-        ),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Gagal menyimpan: $error')));
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) {
         setState(() {
