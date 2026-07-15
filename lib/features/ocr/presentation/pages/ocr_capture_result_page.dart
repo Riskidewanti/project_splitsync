@@ -3,6 +3,8 @@ import 'dart:ui' show PathMetric, PathMetrics;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/config/env.dart';
+import '../../../../core/services/gemini_receipt_service.dart';
 import '../../data/datasources/ocr_service.dart';
 import '../../data/utils/receipt_parser.dart';
 import 'edit_items_page.dart';
@@ -20,6 +22,9 @@ class OCRCaptureResultPage extends StatefulWidget {
 class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
   final OCRService _ocrService = const OCRService();
   final ReceiptParser _receiptParser = const ReceiptParser();
+  final GeminiReceiptService _geminiService = GeminiReceiptService(
+    apiKey: Env.geminiApiKey,
+  );
   bool _isRunningOCR = false;
 
   Future<void> _handleFinish() async {
@@ -35,15 +40,37 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
       final String extractedText = await _ocrService.extractText(
         widget.imagePath,
       );
-      final Map<String, dynamic> parsedResult = _receiptParser.parse(
-        extractedText,
-      );
+      debugPrint('===== OCR RAW TEXT =====');
+      debugPrint(extractedText);
+      debugPrint('========================');
+      late final Map<String, dynamic> parsedResult;
+      try {
+        debugPrint(
+          'Gemini API key configured: ${Env.geminiApiKey.isNotEmpty}',
+        );
+        parsedResult = await _geminiService.parseReceipt(extractedText);
+      } catch (error) {
+        debugPrint('Gemini receipt parsing failed: $error');
+        parsedResult = _receiptParser.parse(extractedText);
+      }
+      debugPrint('===== OCR PARSED RESULT =====');
+      debugPrint(parsedResult.toString());
+      debugPrint('=============================');
       final String merchant = _parsedMerchant(parsedResult['merchant']);
-      final double total = _parsedTotal(parsedResult['total']);
-      final List<ReceiptItem> items = _parsedItems(parsedResult['items']);
+      final DateTime date = _parsedDate(parsedResult['date']);
+      final String category = _parsedCategory(parsedResult['category']);
+      final double total = _parsedTotal(parsedResult['total']); 
+      final Object? parsedItemsValue = parsedResult['items'];
+      debugPrint(
+        'OCRCaptureResultPage parsedResult[items] '
+        'type=${parsedItemsValue.runtimeType} '
+        'length=${parsedItemsValue is List ? parsedItemsValue.length : 'not-list'}',
+      );
+      final List<ReceiptItem> items = _parsedItems(parsedItemsValue);
 
       debugPrint('Raw OCR text:\n$extractedText');
       debugPrint('Parsed receipt result: $parsedResult');
+      debugPrint('OCRCaptureResultPage ReceiptItem length=${items.length}');
       debugPrint('Parsed receipt items: $items');
 
       if (!mounted) {
@@ -60,11 +87,14 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
         context,
         MaterialPageRoute<void>(
           builder: (BuildContext context) {
+            debugPrint(
+              'OCRCaptureResultPage -> OCRResultPage items length=${items.length}',
+            );
             return OCRResultPage(
               merchant: merchant,
               total: total,
-              date: DateTime(2023, 10, 24),
-              category: 'Ditempat',
+              date: date,
+              category: category,
               items: items,
             );
           },
@@ -111,27 +141,116 @@ class _OCRCaptureResultPageState extends State<OCRCaptureResultPage> {
     return 0;
   }
 
+  DateTime _parsedDate(Object? value) {
+  if (value is String) {
+    return DateTime.tryParse(value) ?? DateTime.now();
+  }
+
+  return DateTime.now();
+}
+
+String _parsedCategory(Object? value) {
+  if (value is String && value.trim().isNotEmpty) {
+    return value.trim();
+  }
+
+  return 'Other';
+}
+
   List<ReceiptItem> _parsedItems(Object? value) {
     if (value is! List) {
+      debugPrint(
+        'OCRCaptureResultPage _parsedItems received ${value.runtimeType}; returning 0 items',
+      );
       return const <ReceiptItem>[];
     }
 
-    return value
-        .whereType<Map>()
-        .map((Map<dynamic, dynamic> item) {
-          final Object? nameValue = item['name'];
-          final Object? priceValue = item['price'];
-          final String name = nameValue is String ? nameValue.trim() : '';
-          final double price = _parsedTotal(priceValue);
+    double parseAmount(Object? amount) {
+      if (amount is int) {
+        return amount.toDouble();
+      }
+      if (amount is double) {
+        return amount;
+      }
+      if (amount is num) {
+        return amount.toDouble();
+      }
+      if (amount is String) {
+        final String text = amount
+            .trim()
+            .replaceAll(RegExp(r'[^0-9,.-]'), '')
+            .replaceAll(RegExp(r'^-+'), '');
+        if (text.isEmpty) {
+          return 0;
+        }
 
-          if (name.isEmpty || price <= 0) {
-            return null;
-          }
+        final bool hasThousandsGrouping = RegExp(
+          r'^\d{1,3}([.,]\d{3})+(?:[.,]\d{2})?$',
+        ).hasMatch(text);
+        if (hasThousandsGrouping) {
+          return double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+        }
 
-          return ReceiptItem(name: name, quantity: 1, price: price);
-        })
-        .whereType<ReceiptItem>()
-        .toList();
+        final double? parsed = double.tryParse(text.replaceAll(',', '.'));
+        if (parsed != null) {
+          return parsed;
+        }
+
+        return double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      }
+
+      return 0;
+    }
+
+    int parseQuantity(Object? quantity) {
+      if (quantity is int && quantity > 0) {
+        return quantity;
+      }
+      if (quantity is num && quantity > 0) {
+        return quantity.round();
+      }
+      if (quantity is String) {
+        final int? parsed = int.tryParse(quantity.trim());
+        if (parsed != null && parsed > 0) {
+          return parsed;
+        }
+      }
+
+      return 1;
+    }
+
+    final List<ReceiptItem> receiptItems = <ReceiptItem>[];
+    for (final Object? rawItem in value) {
+      if (rawItem is! Map) {
+        debugPrint(
+          'OCRCaptureResultPage _parsedItems skipped ${rawItem.runtimeType}',
+        );
+        continue;
+      }
+
+      final Object? nameValue = rawItem['name'] ?? rawItem['item_name'];
+      final Object? priceValue = rawItem['price'] ?? rawItem['total'];
+      final String name = nameValue?.toString().trim() ?? '';
+      final double price = parseAmount(priceValue);
+      final int quantity = parseQuantity(rawItem['quantity']);
+
+      if (name.isEmpty || price <= 0) {
+        debugPrint(
+          'OCRCaptureResultPage _parsedItems skipped item name="$name" price=$price raw=$rawItem',
+        );
+        continue;
+      }
+
+      receiptItems.add(
+        ReceiptItem(name: name, quantity: quantity, price: price),
+      );
+    }
+
+    debugPrint(
+      'OCRCaptureResultPage _parsedItems input length=${value.length}, '
+      'output ReceiptItem length=${receiptItems.length}',
+    );
+    return receiptItems;
   }
 
   @override
@@ -414,7 +533,7 @@ class _BottomActions extends StatelessWidget {
         children: <Widget>[
           SizedBox(
             width: double.infinity,
-            height: 54,
+                height: 48,
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFE93635),
