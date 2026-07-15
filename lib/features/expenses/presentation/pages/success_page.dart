@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/currency_formatter.dart';
+
 class SuccessPage extends StatelessWidget {
   const SuccessPage({
     super.key,
@@ -20,7 +22,7 @@ class SuccessPage extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          onPressed: () {},
+          onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back, size: 18),
         ),
         title: const Text(
@@ -55,7 +57,7 @@ class SuccessPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Total ${_formatCurrency(totalAmount)} pengeluaran untuk $participantCount orang',
+                    'Total ${formatRupiah(totalAmount)} pengeluaran untuk $participantCount orang',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Color(0xFF6B7280),
@@ -75,7 +77,9 @@ class SuccessPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+                      },
                       child: const Text(
                         'Selesai',
                         style: TextStyle(
@@ -125,7 +129,7 @@ class _SuccessIndicator extends StatelessWidget {
         ),
         child: Container(
           width: 54,
-          height: 54,
+              height: 48,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
@@ -136,21 +140,4 @@ class _SuccessIndicator extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatCurrency(double value) {
-  final String fixed = value.toStringAsFixed(2);
-  final List<String> parts = fixed.split('.');
-  final String whole = parts.first;
-  final StringBuffer buffer = StringBuffer();
-
-  for (int i = 0; i < whole.length; i++) {
-    final int reverseIndex = whole.length - i;
-    buffer.write(whole[i]);
-    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-      buffer.write(',');
-    }
-  }
-
-  return '\$${buffer.toString()}.${parts.last}';
 }

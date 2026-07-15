@@ -1,4 +1,4 @@
-﻿import 'package:equatable/equatable.dart';
+import 'package:equatable/equatable.dart';
 
 enum GroupMemberRole {
   owner('owner'),
@@ -30,7 +30,8 @@ enum GroupMemberStatus {
   static GroupMemberStatus fromValue(String value) {
     return GroupMemberStatus.values.firstWhere(
       (GroupMemberStatus status) => status.value == value,
-      orElse: () => throw FormatException('Unknown group member status: $value'),
+      orElse: () =>
+          throw FormatException('Unknown group member status: $value'),
     );
   }
 }
@@ -40,6 +41,11 @@ class GroupMemberModel extends Equatable {
     required this.id,
     required this.groupId,
     required this.userId,
+
+    this.displayName,
+    this.email,
+    this.avatarUrl,
+
     required this.role,
     required this.status,
     required this.createdAt,
@@ -52,6 +58,11 @@ class GroupMemberModel extends Equatable {
   final String id;
   final String groupId;
   final String userId;
+
+  final String? displayName;
+  final String? email;
+  final String? avatarUrl;
+
   final String? invitedBy;
   final GroupMemberRole role;
   final GroupMemberStatus status;
@@ -61,21 +72,28 @@ class GroupMemberModel extends Equatable {
   final DateTime updatedAt;
 
   factory GroupMemberModel.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic>? profile = json['profiles'] is Map
+        ? Map<String, dynamic>.from(json['profiles'] as Map)
+        : null;
+
     return GroupMemberModel(
-      id: _requiredString(json['id'], 'id'),
-      groupId: _requiredString(json['group_id'], 'group_id'),
-      userId: _requiredString(json['user_id'], 'user_id'),
-      invitedBy: json['invited_by'] as String?,
-      role: GroupMemberRole.fromValue(
-        _requiredString(json['role'], 'role'),
+      id: _safeString(json['id'], ''),
+      groupId: _safeString(json['group_id'], ''),
+      userId: _safeString(json['user_id'], ''),
+
+      displayName: _nullableStringCoerce(
+        profile?['display_name'] ?? profile?['user_name'],
       ),
-      status: GroupMemberStatus.fromValue(
-        _requiredString(json['status'], 'status'),
-      ),
-      joinedAt: _nullableDateTime(json['joined_at']),
-      leftAt: _nullableDateTime(json['left_at']),
-      createdAt: _requiredDateTime(json['created_at'], 'created_at'),
-      updatedAt: _requiredDateTime(json['updated_at'], 'updated_at'),
+      email: _nullableStringCoerce(profile?['email']),
+      avatarUrl: _nullableStringCoerce(profile?['avatar_url']),
+
+      invitedBy: _nullableStringCoerce(json['invited_by']),
+      role: _safeRole(json['role']),
+      status: _safeStatus(json['status']),
+      joinedAt: _safeDateTime(json['joined_at']),
+      leftAt: _safeDateTime(json['left_at']),
+      createdAt: _safeDateTime(json['created_at']) ?? DateTime.now(),
+      updatedAt: _safeDateTime(json['updated_at']) ?? DateTime.now(),
     );
   }
 
@@ -84,6 +102,9 @@ class GroupMemberModel extends Equatable {
       'id': id,
       'group_id': groupId,
       'user_id': userId,
+      'display_name': displayName,
+      'email': email,
+      'avatar_url': avatarUrl,
       'invited_by': invitedBy,
       'role': role.value,
       'status': status.value,
@@ -99,6 +120,9 @@ class GroupMemberModel extends Equatable {
     String? groupId,
     String? userId,
     Object? invitedBy = _sentinel,
+    Object? displayName = _sentinel,
+    Object? email = _sentinel,
+    Object? avatarUrl = _sentinel,
     GroupMemberRole? role,
     GroupMemberStatus? status,
     Object? joinedAt = _sentinel,
@@ -110,6 +134,13 @@ class GroupMemberModel extends Equatable {
       id: id ?? this.id,
       groupId: groupId ?? this.groupId,
       userId: userId ?? this.userId,
+      displayName: identical(displayName, _sentinel)
+          ? this.displayName
+          : displayName as String?,
+      email: identical(email, _sentinel) ? this.email : email as String?,
+      avatarUrl: identical(avatarUrl, _sentinel)
+          ? this.avatarUrl
+          : avatarUrl as String?,
       invitedBy: identical(invitedBy, _sentinel)
           ? this.invitedBy
           : invitedBy as String?,
@@ -126,50 +157,67 @@ class GroupMemberModel extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        id,
-        groupId,
-        userId,
-        invitedBy,
-        role,
-        status,
-        joinedAt,
-        leftAt,
-        createdAt,
-        updatedAt,
-      ];
+    id,
+    groupId,
+    userId,
+    displayName,
+    email,
+    avatarUrl,
+    invitedBy,
+    role,
+    status,
+    joinedAt,
+    leftAt,
+    createdAt,
+    updatedAt,
+  ];
 }
 
 const Object _sentinel = Object();
 
-String _requiredString(Object? value, String key) {
-  if (value is String && value.isNotEmpty) {
-    return value;
-  }
-
-  throw FormatException('Missing required string field: $key');
+String _safeString(Object? value, String fallback) {
+  if (value == null) return fallback;
+  final String str = value.toString().trim();
+  return str.isEmpty ? fallback : str;
 }
 
-DateTime _requiredDateTime(Object? value, String key) {
-  final DateTime? dateTime = _nullableDateTime(value);
-  if (dateTime != null) {
-    return dateTime;
-  }
-
-  throw FormatException('Missing required DateTime field: $key');
+String? _nullableStringCoerce(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value.isEmpty ? null : value;
+  return value.toString();
 }
 
-DateTime? _nullableDateTime(Object? value) {
-  if (value == null) {
+GroupMemberRole _safeRole(Object? value) {
+  if (value == null) return GroupMemberRole.member;
+  final String valStr = value.toString().trim().toLowerCase();
+  for (final role in GroupMemberRole.values) {
+    if (role.value.toLowerCase() == valStr) {
+      return role;
+    }
+  }
+  return GroupMemberRole.member;
+}
+
+GroupMemberStatus _safeStatus(Object? value) {
+  if (value == null) return GroupMemberStatus.active;
+  final String valStr = value.toString().trim().toLowerCase();
+  for (final status in GroupMemberStatus.values) {
+    if (status.value.toLowerCase() == valStr) {
+      return status;
+    }
+  }
+  return GroupMemberStatus.active;
+}
+
+DateTime? _safeDateTime(Object? value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+  try {
+    final String str = value.toString().trim();
+    if (str.isEmpty) return null;
+    return DateTime.parse(str);
+  } catch (_) {
     return null;
   }
-
-  if (value is DateTime) {
-    return value;
-  }
-
-  if (value is String && value.isNotEmpty) {
-    return DateTime.parse(value);
-  }
-
-  throw FormatException('Invalid DateTime value: $value');
 }
+
